@@ -64,8 +64,14 @@ export function WorkoutSummary({ workout, deletable }: { workout: Workout; delet
         <div className="grow min0">
           <strong className="clamp block">{data.plan?.name ?? weekday}</strong>
           <div className="muted small">
-            {mins !== undefined ? `${mins} ${t('minutes')}` : t('inProgress')} · {data.groups.length} {t('exercises')} ·{' '}
-            {data.sets.length} {t('sets')}
+            {workout.logged ? (
+              t('loggedEntry')
+            ) : (
+              <>
+                {mins !== undefined ? `${mins} ${t('minutes')}` : t('inProgress')} · {data.groups.length}{' '}
+                {t('exercises')} · {data.sets.length} {t('sets')}
+              </>
+            )}
           </div>
         </div>
         <Icon name="chevronDown" size={20} className={`chev ${open ? 'flip' : ''}`} />
