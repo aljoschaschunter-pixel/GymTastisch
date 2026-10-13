@@ -21,6 +21,7 @@ export async function exportBackup() {
     exercises,
     workouts: await db.workouts.toArray(),
     sets: await db.sets.toArray(),
+    plans: await db.plans.toArray(),
   }
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
   const name = `gymtastisch-${new Date().toISOString().slice(0, 10)}.json`
@@ -52,10 +53,11 @@ export async function importBackup(file: File) {
       photo: e.photo ? await dataUrlToBlob(e.photo) : undefined,
     })),
   )
-  await db.transaction('rw', db.exercises, db.workouts, db.sets, async () => {
-    await Promise.all([db.exercises.clear(), db.workouts.clear(), db.sets.clear()])
+  await db.transaction('rw', [db.exercises, db.workouts, db.sets, db.plans], async () => {
+    await Promise.all([db.exercises.clear(), db.workouts.clear(), db.sets.clear(), db.plans.clear()])
     await db.exercises.bulkAdd(exercises)
     await db.workouts.bulkAdd(data.workouts ?? [])
     await db.sets.bulkAdd(data.sets ?? [])
+    await db.plans.bulkAdd(data.plans ?? [])
   })
 }

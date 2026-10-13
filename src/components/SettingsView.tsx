@@ -8,6 +8,8 @@ const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true
 
+const REP_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1)
+
 export function SettingsView() {
   const { t } = useI18n()
   const { settings, update } = useSettings()
@@ -39,6 +41,41 @@ export function SettingsView() {
             ))}
           </select>
         </label>
+        <div className="field">
+          <span>{t('repRange')}</span>
+          <div className="range-row">
+            <select
+              value={settings.repMin}
+              aria-label="min"
+              onChange={(e) => {
+                const repMin = Number(e.target.value)
+                update({ repMin, repMax: Math.max(repMin, settings.repMax) })
+              }}
+            >
+              {REP_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span>–</span>
+            <select
+              value={settings.repMax}
+              aria-label="max"
+              onChange={(e) => {
+                const repMax = Number(e.target.value)
+                update({ repMax, repMin: Math.min(repMax, settings.repMin) })
+              }}
+            >
+              {REP_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <small className="muted">{t('repRangeHint')}</small>
+        </div>
         <label>
           {t('weightStep')}
           <select value={settings.weightStep} onChange={(e) => update({ weightStep: Number(e.target.value) })}>

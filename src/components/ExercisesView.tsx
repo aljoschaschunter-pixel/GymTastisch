@@ -81,12 +81,21 @@ export function ExerciseForm({
   const [notes, setNotes] = useState(exercise?.notes ?? '')
   const [photo, setPhoto] = useState<Blob | undefined>(exercise?.photo)
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
+  const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
   const save = async () => {
     if (!canSave) return
-    const data = { name: name.trim() || undefined, group, notes: notes.trim() || undefined, photo, restSeconds }
+    const ww = parseFloat(workingWeight.replace(',', '.'))
+    const data = {
+      name: name.trim() || undefined,
+      group,
+      notes: notes.trim() || undefined,
+      photo,
+      restSeconds,
+      workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
+    }
     if (exercise) {
       await db.exercises.update(exercise.id, data)
       onClose(exercise.id)
@@ -153,6 +162,12 @@ export function ExerciseForm({
           {t('notes')}
           <textarea value={notes} rows={3} placeholder={t('notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
         </label>
+        {group !== 'cardio' && (
+          <label>
+            {t('workingWeight')} (kg)
+            <input inputMode="decimal" value={workingWeight} placeholder="–" onChange={(e) => setWorkingWeight(e.target.value)} />
+          </label>
+        )}
         <label>
           {t('restTime')}
           <select

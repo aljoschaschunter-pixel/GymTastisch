@@ -32,6 +32,8 @@ export interface Exercise {
   photo?: Blob
   /** Rest time override in seconds; falls back to the global default. */
   restSeconds?: number
+  /** Weight for the first set next time (progressive overload). */
+  workingWeight?: number
   archived?: boolean
   createdAt: number
 }
@@ -42,8 +44,20 @@ export interface Workout {
   endedAt?: number
   /** Exercises in this workout, in the order they were added. */
   exerciseIds: string[]
+  /** Training day this workout was started from. */
+  planId?: string
   note?: string
 }
+
+/** A training day, e.g. "Monday · Day 1", with a fixed list of exercises. */
+export interface Plan {
+  id: string
+  name: string
+  order: number
+  exerciseIds: string[]
+}
+
+export const MAX_PLANS = 7
 
 export interface WorkoutSet {
   id: string
@@ -58,12 +72,17 @@ export const db = new Dexie('gymtastisch') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>
   workouts: EntityTable<Workout, 'id'>
   sets: EntityTable<WorkoutSet, 'id'>
+  plans: EntityTable<Plan, 'id'>
 }
 
 db.version(1).stores({
   exercises: 'id, builtin, group',
   workouts: 'id, startedAt, endedAt',
   sets: 'id, workoutId, exerciseId, createdAt, [exerciseId+createdAt]',
+})
+
+db.version(2).stores({
+  plans: 'id, order',
 })
 
 export const uid = () =>

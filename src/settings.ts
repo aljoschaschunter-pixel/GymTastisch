@@ -7,6 +7,9 @@ export interface Settings {
   sound: boolean
   keepAwake: boolean
   weightStep: number
+  /** Target rep range for the first set; outside it the app suggests a new weight. */
+  repMin: number
+  repMax: number
   /** Set once the language was picked on the welcome screen. */
   langChosen: boolean
 }
@@ -17,6 +20,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   keepAwake: true,
   weightStep: 2.5,
+  repMin: 8,
+  repMax: 10,
   langChosen: false,
 }
 
