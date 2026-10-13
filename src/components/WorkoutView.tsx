@@ -9,7 +9,7 @@ import { useSettings } from '../settings'
 import { ExercisePicker } from './ExercisePicker'
 import { useRest } from './RestTimer'
 import { WorkoutSummary } from './HistoryView'
-import { fmt, Photo, Sheet, Stepper } from './ui'
+import { ExerciseThumb, fmt, Sheet, Stepper } from './ui'
 
 export function WorkoutView() {
   const { t } = useI18n()
@@ -191,7 +191,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
     <article className="card" id={`ex-${exerciseId}`}>
       <header className="card-head">
         <button className="card-title" onClick={() => openExercise(exerciseId)}>
-          {exercise.photo && <Photo blob={exercise.photo} className="thumb" />}
+          <ExerciseThumb exercise={exercise} className="thumb card-thumb" />
           <span>
             <strong>{exerciseName(exercise, t)}</strong>
             {exercise.notes && <small className="muted block">{exercise.notes}</small>}
