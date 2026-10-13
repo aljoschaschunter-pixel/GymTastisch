@@ -10,6 +10,8 @@ export interface Settings {
   /** Target rep range for the first set; outside it the app suggests a new weight. */
   repMin: number
   repMax: number
+  /** Workouts per week to aim for. */
+  weeklyGoal: number
   /** Set once the language was picked on the welcome screen. */
   langChosen: boolean
 }
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weightStep: 2.5,
   repMin: 8,
   repMax: 12,
+  weeklyGoal: 3,
   langChosen: false,
 }
 

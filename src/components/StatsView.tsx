@@ -4,23 +4,12 @@ import { dayKey, db, estimate1RM, MUSCLE_GROUPS, type BodyWeight } from '../db'
 import { useI18n, type Key, type Lang } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
+import { DAY, prevWeek, weekStart, weekStreak } from '../weeks'
 import { Chart } from './Chart'
 import { Icon } from './Icon'
 import { ExerciseThumb, fmt, Stepper } from './ui'
 
-const DAY = 86_400_000
 const locale = (lang: Lang) => (lang === 'de' ? 'de-DE' : 'en-GB')
-
-/** Monday 00:00 of the week containing `ts`. */
-function weekStart(ts: number) {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
-  return d.getTime()
-}
-
-/** Previous Monday, robust against daylight saving changes. */
-const prevWeek = (monday: number) => weekStart(monday - 3 * DAY)
 
 const signed = (n: number, lang: Lang) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${fmt(Math.abs(n), lang)}`
 
@@ -188,9 +177,7 @@ function TrainingStats() {
     }
     for (const w of weeks) w.count = perWeek.get(w.start) ?? 0
 
-    // Consecutive weeks with at least one workout; the current week counts once it has one.
-    let streak = 0
-    for (let w = perWeek.has(thisWeek) ? thisWeek : lastWeek; perWeek.has(w); w = prevWeek(w)) streak++
+    const streak = weekStreak(perWeek, now)
 
     const volume = (from: number, to: number) =>
       done.filter((s) => s.createdAt >= from && s.createdAt < to).reduce((sum, s) => sum + s.weight * s.reps, 0)

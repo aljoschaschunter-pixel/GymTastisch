@@ -69,6 +69,16 @@ export function SettingsView() {
       <h3 className="group-title">{t('sectionTraining')}</h3>
       <div className="settings-group">
         <label className="set-row">
+          <span>{t('weeklyGoal')}</span>
+          <select value={settings.weeklyGoal} onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}>
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <option key={n} value={n}>
+                {t('weeklyGoalValue', { n })}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="set-row">
           <span>{t('defaultRest')}</span>
           <select value={settings.defaultRest} onChange={(e) => update({ defaultRest: Number(e.target.value) })}>
             {[45, 60, 90, 120, 150, 180, 240, 300].map((s) => (

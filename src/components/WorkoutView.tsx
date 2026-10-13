@@ -10,6 +10,7 @@ import { useSettings } from '../settings'
 import { ExercisePicker } from './ExercisePicker'
 import { Icon } from './Icon'
 import { StartScreen } from './Plans'
+import { WorkoutComplete } from './Summary'
 import { useRest } from './RestTimer'
 import { ExerciseThumb, fmt, setText, Sheet, Stepper } from './ui'
 
@@ -20,6 +21,7 @@ export function WorkoutView() {
   const workout = useLiveQuery(activeWorkout, [], null)
   const plan = useLiveQuery(async () => (workout?.planId ? db.plans.get(workout.planId) : undefined), [workout?.planId])
   const [picking, setPicking] = useState(false)
+  const [summaryId, setSummaryId] = useState<string>()
 
   useEffect(() => {
     setKeepAwake(!!workout && settings.keepAwake)
@@ -36,7 +38,15 @@ export function WorkoutView() {
 
   if (workout === null) return null // loading
 
-  if (!workout) return <StartScreen />
+  const summary = summaryId && <WorkoutComplete workoutId={summaryId} onClose={() => setSummaryId(undefined)} />
+
+  if (!workout)
+    return (
+      <>
+        <StartScreen />
+        {summary}
+      </>
+    )
 
   const addExercise = async (id: string) => {
     setPicking(false)
@@ -53,6 +63,8 @@ export function WorkoutView() {
     } else {
       if (!confirm(t('finishConfirm'))) return
       await db.workouts.update(workout.id, { endedAt: Date.now() })
+      setSummaryId(workout.id)
+      window.scrollTo(0, 0)
     }
     stop()
   }
@@ -128,6 +140,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
   const [reps, setReps] = useState<number>()
   const [editing, setEditing] = useState<WorkoutSet>()
   const [pr, setPr] = useState(false)
+  const [beat, setBeat] = useState<string>()
   const [suggestion, setSuggestion] = useState<{ verdict: Verdict; reps: number; weight: number; next: number }>()
 
   // Prefill with the last set of today; for the first set use the working weight.
@@ -159,6 +172,20 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
     if (best > 0 && weight > 0 && estimate1RM(weight, reps) > best) {
       setPr(true)
       setTimeout(() => setPr(false), 4000)
+    } else {
+      // Small wins count: compare with the same set last time.
+      const prev = previous?.[sets.length]
+      const msg = !prev
+        ? undefined
+        : weight > prev.weight
+          ? t('beatWeight', { kg: fmt(weight - prev.weight, lang) })
+          : weight === prev.weight && reps > prev.reps
+            ? t('beatReps', { n: reps - prev.reps })
+            : undefined
+      if (msg) {
+        setBeat(msg)
+        setTimeout(() => setBeat(undefined), 3500)
+      }
     }
   }
 
@@ -231,6 +258,11 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
       {pr && (
         <div className="pr-badge">
           <Icon name="trophy" size={18} /> {t('newPR')}
+        </div>
+      )}
+      {beat && (
+        <div className="beat-badge">
+          <Icon name="trendUp" size={18} /> {beat}
         </div>
       )}
 
