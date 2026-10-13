@@ -1,17 +1,24 @@
 # GymTastisch
 
-A small workout tracker for the iPhone, built as a web app (PWA), so it needs no App Store.
+A simple, free workout tracker that runs in the browser and installs on your phone like an app.
 
-- Exercise list with ~40 illustrated exercises, your own exercises, photos and notes
-- Log sets as weight × reps, prefilled from last time
-- Rest timer starts automatically after each set, keeps the screen on and beeps over your music
-- Progress per exercise: estimated 1RM, top weight, volume and new-record badges
-- German and English
-- Works offline; data stays on the phone, with JSON backup export and import
+## Features
 
-## Install on iPhone
+- **Training days:** save up to 7 days (e.g. "Monday · Day 1") with a fixed set of exercises and start them with one tap
+- **Progressive overload:** your first set decides the weight for next time, based on your target rep range (default 8–12)
+- **Quick logging:** weight × reps with +/− buttons, prefilled from last time
+- **Rest timer:** starts automatically after each set, keeps the screen on and plays a short beep over your music
+- **40 illustrated exercises**, plus your own exercises with photos and notes
+- **Progress:** chart per exercise (estimated 1RM, top weight, volume) and new-record badges
+- **History** of all workouts
+- **German and English**
+- **Works offline;** your data stays on your phone, with backup export and import
 
-Open the app's address in Safari, tap **Share → Add to Home Screen**, then start it from the home screen icon.
+## Install
+
+**iPhone:** open the app in Safari, tap **Share → Add to Home Screen**, then open it from the new icon.
+
+**Android:** open the app in Chrome, tap the **⋮ menu → Install app** (or **Add to Home screen**), then open it from the new icon.
 
 ## Development
 
@@ -21,15 +28,4 @@ npm run dev      # local dev server
 npm run build    # production build into dist/
 ```
 
-Pushing to `main` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`).
-In the repo settings, **Pages → Build and deployment → Source** must be set to **GitHub Actions**.
-
-## What a web app can't do on iOS
-
-- No vibration (Safari has no Vibration API).
-- When the phone is locked, the timer can't beep; the app shows "rest's over" when you come back.
-  A lock-screen notification would need Web Push plus a small server (possible later).
-
-## Credits
-
-Exercise illustrations were generated with ChatGPT for this app.
+Every push to `main` is built and published with GitHub Pages.

@@ -114,7 +114,7 @@ const en = {
   importFailed: 'This file could not be read.',
   installHint: 'Tip: in Safari tap Share → “Add to Home Screen” to use GymTastisch like an app.',
   testSound: 'Test',
-  about: 'Made with ❤️ for two.',
+  about: 'Free and open source.',
 
   group_chest: 'Chest',
   group_back: 'Back',
@@ -281,7 +281,7 @@ const de: Record<Key, string> = {
   importFailed: 'Diese Datei konnte nicht gelesen werden.',
   installHint: 'Tipp: In Safari auf Teilen → „Zum Home-Bildschirm“ tippen, um GymTastisch wie eine App zu nutzen.',
   testSound: 'Testen',
-  about: 'Mit ❤️ für zwei gemacht.',
+  about: 'Kostenlos und Open Source.',
 
   group_chest: 'Brust',
   group_back: 'Rücken',
