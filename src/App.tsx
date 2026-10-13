@@ -5,7 +5,7 @@ import { loadRest, RestContext, RestTimerBar, saveRest, type RestState } from '.
 import { SettingsView } from './components/SettingsView'
 import { WorkoutView } from './components/WorkoutView'
 import { requestPersistence } from './db'
-import { detectLang, I18nContext, makeT, type Key } from './i18n'
+import { detectLang, I18nContext, makeT, type Key, type Lang } from './i18n'
 import { NavContext, type Tab } from './nav'
 import { seedExercises } from './seed'
 import { loadSettings, saveSettings, SettingsContext, type Settings } from './settings'
@@ -75,6 +75,10 @@ export default function App() {
     [tab],
   )
 
+  if (!settings.langChosen) {
+    return <Welcome onPick={(l) => settingsCtx.update({ lang: l, langChosen: true })} />
+  }
+
   return (
     <I18nContext.Provider value={i18n}>
       <SettingsContext.Provider value={settingsCtx}>
@@ -119,5 +123,29 @@ export default function App() {
         </RestContext.Provider>
       </SettingsContext.Provider>
     </I18nContext.Provider>
+  )
+}
+
+function Welcome({ onPick }: { onPick: (lang: Lang) => void }) {
+  const choices: { lang: Lang; label: string; flag: string }[] = [
+    { lang: 'de', label: 'Deutsch', flag: '🇩🇪' },
+    { lang: 'en', label: 'English', flag: '🇬🇧' },
+  ]
+  // Suggested language first.
+  if (detectLang() === 'en') choices.reverse()
+  return (
+    <main className="welcome">
+      <img src={`${import.meta.env.BASE_URL}pwa-192.png`} alt="" className="welcome-logo" />
+      <h1>GymTastisch</h1>
+      <p className="muted">Sprache wählen · Choose your language</p>
+      <div className="welcome-choices">
+        {choices.map((c) => (
+          <button key={c.lang} className="btn secondary big" onClick={() => onPick(c.lang)}>
+            <span aria-hidden>{c.flag}</span> {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted small">Später in den Einstellungen änderbar · You can change it later in Settings</p>
+    </main>
   )
 }

@@ -7,6 +7,8 @@ export interface Settings {
   sound: boolean
   keepAwake: boolean
   weightStep: number
+  /** Set once the language was picked on the welcome screen. */
+  langChosen: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -15,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   keepAwake: true,
   weightStep: 2.5,
+  langChosen: false,
 }
 
 const KEY = 'gymtastisch.settings'
