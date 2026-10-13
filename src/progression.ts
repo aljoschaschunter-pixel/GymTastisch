@@ -2,9 +2,13 @@ import type { Exercise } from './db'
 
 export type Verdict = 'up' | 'down' | 'keep'
 
-/** Progressive overload: only the first set of an exercise counts. */
+/**
+ * Double progression on the first set only: reaching the top of the range
+ * means more weight next time, falling below the bottom means less.
+ * With 8–12: 7 or fewer → down, 8–11 → keep, 12 or more → up.
+ */
 export function judgeFirstSet(reps: number, repMin: number, repMax: number): Verdict {
-  if (reps > repMax) return 'up'
+  if (reps >= repMax) return 'up'
   if (reps < repMin) return 'down'
   return 'keep'
 }

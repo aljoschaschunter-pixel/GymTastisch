@@ -9,6 +9,8 @@ const isStandalone = () =>
   (navigator as Navigator & { standalone?: boolean }).standalone === true
 
 const REP_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1)
+const MIN_OPTIONS = REP_OPTIONS.slice(0, -1)
+const MAX_OPTIONS = REP_OPTIONS.slice(1)
 
 export function SettingsView() {
   const { t } = useI18n()
@@ -49,10 +51,10 @@ export function SettingsView() {
               aria-label="min"
               onChange={(e) => {
                 const repMin = Number(e.target.value)
-                update({ repMin, repMax: Math.max(repMin, settings.repMax) })
+                update({ repMin, repMax: Math.max(repMin + 1, settings.repMax) })
               }}
             >
-              {REP_OPTIONS.map((n) => (
+              {MIN_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -64,17 +66,24 @@ export function SettingsView() {
               aria-label="max"
               onChange={(e) => {
                 const repMax = Number(e.target.value)
-                update({ repMax, repMin: Math.min(repMax, settings.repMin) })
+                update({ repMax, repMin: Math.min(repMax - 1, settings.repMin) })
               }}
             >
-              {REP_OPTIONS.map((n) => (
+              {MAX_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
             </select>
           </div>
-          <small className="muted">{t('repRangeHint')}</small>
+          <div className="rule-box small">
+            <span className="muted">{t('repRangeHint')}</span>
+            {settings.repMin > 1 && <span>⬇︎ {t('ruleDown', { n: settings.repMin - 1 })}</span>}
+            {settings.repMax > settings.repMin && (
+              <span>= {t('ruleKeep', { a: settings.repMin, b: settings.repMax - 1 })}</span>
+            )}
+            <span>⬆︎ {t('ruleUp', { n: settings.repMax })}</span>
+          </div>
         </div>
         <label>
           {t('weightStep')}

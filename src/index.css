@@ -1014,3 +1014,13 @@ main.with-rest {
 .range-row select {
   flex: 1;
 }
+
+.rule-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+}

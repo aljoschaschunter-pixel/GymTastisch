@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keepAwake: true,
   weightStep: 2.5,
   repMin: 8,
-  repMax: 10,
+  repMax: 12,
   langChosen: false,
 }
 
