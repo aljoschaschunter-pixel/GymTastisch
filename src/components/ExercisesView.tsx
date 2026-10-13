@@ -3,12 +3,12 @@ import { useMemo, useState } from 'react'
 import { db, estimate1RM, MUSCLE_GROUPS, uid, type Exercise, type MuscleGroup, type WorkoutSet } from '../db'
 import { useI18n, type Key } from '../i18n'
 import { useNav } from '../nav'
-import { exerciseName } from '../seed'
+import { builtinImages, exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
 import { groupByMuscle, useExerciseList } from './ExercisePicker'
 import { EditSetSheet } from './WorkoutView'
-import { fmt, Photo, Sheet, shrinkImage } from './ui'
+import { ExerciseThumb, fmt, Photo, Sheet, shrinkImage } from './ui'
 
 export function ExercisesView() {
   const { t } = useI18n()
@@ -40,7 +40,7 @@ export function ExercisesView() {
             {items.map(({ e, name }) => (
               <li key={e.id}>
                 <button className="list-item" onClick={() => openExercise(e.id)}>
-                  {e.photo ? <Photo blob={e.photo} className="thumb" /> : <span className="thumb placeholder" />}
+                  <ExerciseThumb exercise={e} />
                   <span className="grow">{name}</span>
                   <span className="chev">›</span>
                 </button>
@@ -234,6 +234,13 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
       <h1>{exerciseName(exercise, t)}</h1>
       <p className="muted small">{t(`group_${exercise.group}` as Key)}</p>
       {exercise.photo && <Photo blob={exercise.photo} className="photo-large" />}
+      {builtinImages(exercise).length > 0 && (
+        <div className="photo-pair">
+          {builtinImages(exercise).map((src) => (
+            <img key={src} src={src} alt="" />
+          ))}
+        </div>
+      )}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
 
       <h2>{t('progress')}</h2>

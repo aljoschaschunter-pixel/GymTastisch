@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import type { Exercise } from '../db'
 import { useI18n, type Lang } from '../i18n'
+import { builtinImages } from '../seed'
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -96,4 +98,12 @@ export async function shrinkImage(file: File, max = 1200): Promise<Blob> {
   } catch {
     return file
   }
+}
+
+/** Your own photo if you took one, otherwise the built-in exercise picture. */
+export function ExerciseThumb({ exercise, className = 'thumb' }: { exercise: Exercise; className?: string }) {
+  if (exercise.photo) return <Photo blob={exercise.photo} className={className} />
+  const [src] = builtinImages(exercise)
+  if (src) return <img src={src} className={className} alt="" loading="lazy" />
+  return <span className={`${className} placeholder`} />
 }

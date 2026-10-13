@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, MUSCLE_GROUPS, uid, type Exercise } from '../db'
 import { useI18n, type Key } from '../i18n'
 import { exerciseName } from '../seed'
-import { Photo } from './ui'
+import { ExerciseThumb } from './ui'
 
 const norm = (s: string) =>
   s
@@ -67,7 +67,7 @@ export function ExercisePicker({ selected, onPick }: { selected: string[]; onPic
             {items.map(({ e, name }) => (
               <li key={e.id}>
                 <button className="list-item" onClick={() => onPick(e.id)}>
-                  {e.photo ? <Photo blob={e.photo} className="thumb" /> : <span className="thumb placeholder" />}
+                  <ExerciseThumb exercise={e} />
                   <span className="grow">{name}</span>
                   {selected.includes(e.id) && <span className="check">✓</span>}
                 </button>
