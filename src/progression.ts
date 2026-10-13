@@ -14,10 +14,22 @@ export function judgeFirstSet(reps: number, repMin: number, repMax: number): Ver
 }
 
 /** Big lower-body lifts move in larger jumps. */
-const HEAVY_LOWER = new Set(['squat', 'deadlift', 'leg_press', 'romanian_deadlift', 'hip_thrust'])
+const HEAVY_LOWER = new Set(['squat', 'deadlift', 'leg_press', 'romanian_deadlift', 'hip_thrust', 'hack_squat'])
 
 /** Built-in exercises done with body weight; extra load is optional. */
-const BODYWEIGHT = new Set(['push_up', 'pull_up', 'dips', 'lunge', 'back_extension', 'plank', 'crunch', 'hanging_leg_raise'])
+const BODYWEIGHT = new Set([
+  'push_up',
+  'pull_up',
+  'dips',
+  'lunge',
+  'back_extension',
+  'plank',
+  'crunch',
+  'hanging_leg_raise',
+  'bulgarian_split_squat',
+  'leg_raise',
+  'russian_twist',
+])
 
 export const isBodyweight = (e: Exercise) => e.bodyweight ?? (!!e.builtin && BODYWEIGHT.has(e.builtin))
 

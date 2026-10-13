@@ -6,7 +6,7 @@ import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
-import { groupByMuscle, SearchField, useExerciseList } from './ExercisePicker'
+import { CategoryFilter, groupByMuscle, SearchField, useExerciseList, type Category } from './ExercisePicker'
 import { Icon } from './Icon'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
@@ -17,7 +17,8 @@ export function ExercisesView() {
   const { openExercise } = useNav()
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
-  const { list } = useExerciseList(query)
+  const [category, setCategory] = useState<Category>('all')
+  const { list } = useExerciseList(query, category)
 
   return (
     <div className="page">
@@ -28,6 +29,7 @@ export function ExercisesView() {
         </button>
       </header>
       <SearchField value={query} onChange={setQuery} />
+      <CategoryFilter value={category} onChange={setCategory} />
       {!list.length && <p className="muted">{t('noResults')}</p>}
       {groupByMuscle(list).map(({ group, items }) => (
         <section key={group}>
@@ -80,7 +82,10 @@ export function ExerciseForm({
   const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
   const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
   const [bodyweight, setBodyweight] = useState(exercise ? isBodyweight(exercise) : false)
-  const defaultStep = stepFor({ ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined }, settings.weightStep)
+  const defaultStep = stepFor(
+    { ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined },
+    settings.weightStep,
+  )
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
@@ -124,7 +129,12 @@ export function ExerciseForm({
       >
         <label>
           {t('name')}
-          <input value={name} placeholder={builtinName} onChange={(e) => setName(e.target.value)} autoFocus={!exercise} />
+          <input
+            value={name}
+            placeholder={builtinName}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus={!exercise}
+          />
         </label>
         <label>
           {t('group')}
@@ -161,7 +171,12 @@ export function ExerciseForm({
         </div>
         <label>
           {t('notes')}
-          <textarea value={notes} rows={3} placeholder={t('notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
+          <textarea
+            value={notes}
+            rows={3}
+            placeholder={t('notesPlaceholder')}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </label>
         {group !== 'cardio' && (
           <>
@@ -254,7 +269,8 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
     const map = new Map<string, Session>()
     for (const s of sets ?? []) {
       let x = map.get(s.workoutId)
-      if (!x) map.set(s.workoutId, (x = { workoutId: s.workoutId, date: s.createdAt, sets: [], top: 0, e1rm: 0, volume: 0 }))
+      if (!x)
+        map.set(s.workoutId, (x = { workoutId: s.workoutId, date: s.createdAt, sets: [], top: 0, e1rm: 0, volume: 0 }))
       x.sets.push(s)
       x.top = Math.max(x.top, s.weight)
       x.e1rm = Math.max(x.e1rm, estimate1RM(s.weight, s.reps))
