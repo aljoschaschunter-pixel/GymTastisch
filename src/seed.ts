@@ -42,6 +42,34 @@ const BUILTINS: [string, MuscleGroup][] = [
   ['bike', 'cardio'],
   ['rowing_machine', 'cardio'],
   ['cross_trainer', 'cardio'],
+  ['db_bench_press', 'chest'],
+  ['incline_bench_press', 'chest'],
+  ['incline_chest_press_machine', 'chest'],
+  ['pec_fly_db', 'chest'],
+  ['db_row', 'back'],
+  ['row_machine', 'back'],
+  ['assisted_pull_up', 'back'],
+  ['close_grip_pulldown', 'back'],
+  ['hack_squat', 'legs'],
+  ['goblet_squat', 'legs'],
+  ['bulgarian_split_squat', 'legs'],
+  ['lying_leg_curl', 'legs'],
+  ['seated_calf_raise', 'legs'],
+  ['glute_kickback', 'legs'],
+  ['db_shoulder_press', 'shoulders'],
+  ['lateral_raise_machine', 'shoulders'],
+  ['cable_lateral_raise', 'shoulders'],
+  ['biceps_curl_machine', 'arms'],
+  ['barbell_curl', 'arms'],
+  ['cable_curl', 'arms'],
+  ['preacher_curl', 'arms'],
+  ['triceps_machine', 'arms'],
+  ['overhead_triceps_extension', 'arms'],
+  ['cable_crunch', 'core'],
+  ['leg_raise', 'core'],
+  ['russian_twist', 'core'],
+  ['stair_climber', 'cardio'],
+  ['incline_walk', 'cardio'],
 ]
 
 /** Adds any built-in exercises that are missing (first launch, or new ones in an update). */
@@ -58,6 +86,38 @@ export async function seedExercises() {
 export const exerciseName = (e: Exercise | undefined, t: T) =>
   !e ? '?' : e.name || (e.builtin ? t(`ex_${e.builtin}` as Key) : '?')
 
-/** Illustration for built-in exercises. */
+/** Built-in exercises whose illustration is not in public/exercises yet; they show a placeholder. */
+const WITHOUT_IMAGE = new Set([
+  'db_bench_press',
+  'incline_bench_press',
+  'incline_chest_press_machine',
+  'pec_fly_db',
+  'db_row',
+  'row_machine',
+  'assisted_pull_up',
+  'close_grip_pulldown',
+  'hack_squat',
+  'goblet_squat',
+  'bulgarian_split_squat',
+  'lying_leg_curl',
+  'seated_calf_raise',
+  'glute_kickback',
+  'db_shoulder_press',
+  'lateral_raise_machine',
+  'cable_lateral_raise',
+  'biceps_curl_machine',
+  'barbell_curl',
+  'cable_curl',
+  'preacher_curl',
+  'triceps_machine',
+  'overhead_triceps_extension',
+  'cable_crunch',
+  'leg_raise',
+  'russian_twist',
+  'stair_climber',
+  'incline_walk',
+])
+
+/** Illustration for built-in exercises, if one exists. */
 export const builtinImage = (e: Exercise) =>
-  e.builtin ? `${import.meta.env.BASE_URL}exercises/${e.builtin}.jpg` : undefined
+  e.builtin && !WITHOUT_IMAGE.has(e.builtin) ? `${import.meta.env.BASE_URL}exercises/${e.builtin}.jpg` : undefined

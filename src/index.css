@@ -558,6 +558,36 @@ main.with-rest {
   outline: none;
 }
 
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  margin: 10px -16px 0;
+  padding: 0 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-chips button {
+  flex: 1 0 auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.filter-chips button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
 .group-title {
   font-size: 13px;
   font-weight: 600;
