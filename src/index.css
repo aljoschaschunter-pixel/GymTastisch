@@ -315,8 +315,8 @@ main.with-rest {
 }
 
 .thumb {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
@@ -912,17 +912,115 @@ main.with-rest {
   border-radius: 12px;
 }
 
-.photo-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  border-radius: var(--radius);
-  overflow: hidden;
+/* Training days */
+.hero.compact {
+  padding: 16px 4px 4px;
+  align-items: flex-start;
+  text-align: left;
 }
 
-.photo-pair img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-head .group-title {
+  margin: 8px 4px;
+}
+
+.plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-card {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding-right: 6px;
+  border-left: 4px solid var(--accent);
+}
+
+.plan-start {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 16px;
+  text-align: left;
+  font-size: 18px;
+}
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+  color: var(--text);
+}
+
+.plan-row .icon-btn:disabled {
+  opacity: 0.25;
+}
+
+/* Progressive overload */
+.goal-line {
+  margin: 0;
+  color: var(--text);
+}
+
+.prog {
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: pop 0.3s ease-out;
+}
+
+.prog p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.prog-up {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.prog-down {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.prog-keep {
+  border: 0;
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+
+.range-row select {
+  flex: 1;
+}
+
+.rule-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
 }

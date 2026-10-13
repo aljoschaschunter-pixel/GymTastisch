@@ -8,6 +8,10 @@ const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true
 
+const REP_OPTIONS = Array.from({ length: 30 }, (_, i) => i + 1)
+const MIN_OPTIONS = REP_OPTIONS.slice(0, -1)
+const MAX_OPTIONS = REP_OPTIONS.slice(1)
+
 export function SettingsView() {
   const { t } = useI18n()
   const { settings, update } = useSettings()
@@ -39,6 +43,48 @@ export function SettingsView() {
             ))}
           </select>
         </label>
+        <div className="field">
+          <span>{t('repRange')}</span>
+          <div className="range-row">
+            <select
+              value={settings.repMin}
+              aria-label="min"
+              onChange={(e) => {
+                const repMin = Number(e.target.value)
+                update({ repMin, repMax: Math.max(repMin + 1, settings.repMax) })
+              }}
+            >
+              {MIN_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span>–</span>
+            <select
+              value={settings.repMax}
+              aria-label="max"
+              onChange={(e) => {
+                const repMax = Number(e.target.value)
+                update({ repMax, repMin: Math.min(repMax - 1, settings.repMin) })
+              }}
+            >
+              {MAX_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="rule-box small">
+            <span className="muted">{t('repRangeHint')}</span>
+            {settings.repMin > 1 && <span>⬇︎ {t('ruleDown', { n: settings.repMin - 1 })}</span>}
+            {settings.repMax > settings.repMin && (
+              <span>= {t('ruleKeep', { a: settings.repMin, b: settings.repMax - 1 })}</span>
+            )}
+            <span>⬆︎ {t('ruleUp', { n: settings.repMax })}</span>
+          </div>
+        </div>
         <label>
           {t('weightStep')}
           <select value={settings.weightStep} onChange={(e) => update({ weightStep: Number(e.target.value) })}>

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, estimate1RM, MUSCLE_GROUPS, uid, type Exercise, type MuscleGroup, type WorkoutSet } from '../db'
 import { useI18n, type Key } from '../i18n'
 import { useNav } from '../nav'
-import { builtinImages, exerciseName } from '../seed'
+import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
 import { groupByMuscle, useExerciseList } from './ExercisePicker'
@@ -81,12 +81,21 @@ export function ExerciseForm({
   const [notes, setNotes] = useState(exercise?.notes ?? '')
   const [photo, setPhoto] = useState<Blob | undefined>(exercise?.photo)
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
+  const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
   const save = async () => {
     if (!canSave) return
-    const data = { name: name.trim() || undefined, group, notes: notes.trim() || undefined, photo, restSeconds }
+    const ww = parseFloat(workingWeight.replace(',', '.'))
+    const data = {
+      name: name.trim() || undefined,
+      group,
+      notes: notes.trim() || undefined,
+      photo,
+      restSeconds,
+      workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
+    }
     if (exercise) {
       await db.exercises.update(exercise.id, data)
       onClose(exercise.id)
@@ -153,6 +162,12 @@ export function ExerciseForm({
           {t('notes')}
           <textarea value={notes} rows={3} placeholder={t('notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
         </label>
+        {group !== 'cardio' && (
+          <label>
+            {t('workingWeight')} (kg)
+            <input inputMode="decimal" value={workingWeight} placeholder="–" onChange={(e) => setWorkingWeight(e.target.value)} />
+          </label>
+        )}
         <label>
           {t('restTime')}
           <select
@@ -233,14 +248,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
       </header>
       <h1>{exerciseName(exercise, t)}</h1>
       <p className="muted small">{t(`group_${exercise.group}` as Key)}</p>
-      {exercise.photo && <Photo blob={exercise.photo} className="photo-large" />}
-      {builtinImages(exercise).length > 0 && (
-        <div className="photo-pair">
-          {builtinImages(exercise).map((src) => (
-            <img key={src} src={src} alt="" />
-          ))}
-        </div>
-      )}
+      {(exercise.photo || exercise.builtin) && <ExerciseThumb exercise={exercise} className="photo-large" />}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
 
       <h2>{t('progress')}</h2>

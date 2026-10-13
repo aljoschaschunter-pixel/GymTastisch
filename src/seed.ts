@@ -58,6 +58,6 @@ export async function seedExercises() {
 export const exerciseName = (e: Exercise | undefined, t: T) =>
   !e ? '?' : e.name || (e.builtin ? t(`ex_${e.builtin}` as Key) : '?')
 
-/** Start and end position pictures for built-in exercises (public domain, free-exercise-db). */
-export const builtinImages = (e: Exercise) =>
-  e.builtin ? [0, 1].map((n) => `${import.meta.env.BASE_URL}exercises/${e.builtin}-${n}.jpg`) : []
+/** Illustration for built-in exercises. */
+export const builtinImage = (e: Exercise) =>
+  e.builtin ? `${import.meta.env.BASE_URL}exercises/${e.builtin}.jpg` : undefined

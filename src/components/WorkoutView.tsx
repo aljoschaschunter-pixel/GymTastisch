@@ -5,8 +5,10 @@ import { setKeepAwake, unlockAudio } from '../device'
 import { useI18n } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
+import { judgeFirstSet, suggestedWeight, usesProgression, type Verdict } from '../progression'
 import { useSettings } from '../settings'
 import { ExercisePicker } from './ExercisePicker'
+import { PlansSection, startWorkout } from './Plans'
 import { useRest } from './RestTimer'
 import { WorkoutSummary } from './HistoryView'
 import { ExerciseThumb, fmt, Sheet, Stepper } from './ui'
@@ -16,6 +18,7 @@ export function WorkoutView() {
   const { settings } = useSettings()
   const { stop } = useRest()
   const workout = useLiveQuery(activeWorkout, [], null)
+  const plan = useLiveQuery(async () => (workout?.planId ? db.plans.get(workout.planId) : undefined), [workout?.planId])
   const [picking, setPicking] = useState(false)
 
   useEffect(() => {
@@ -67,7 +70,7 @@ export function WorkoutView() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('tabWorkout')}</h1>
+          <h1>{plan?.name ?? t('tabWorkout')}</h1>
           <Elapsed since={workout.startedAt} />
         </div>
         <button className="btn primary small" onClick={finish}>
@@ -101,20 +104,15 @@ function StartScreen() {
     () => db.workouts.orderBy('startedAt').reverse().filter((w) => !!w.endedAt).limit(3).toArray(),
     [],
   )
-  const start = async () => {
-    unlockAudio()
-    await db.workouts.add({ id: uid(), startedAt: Date.now(), exerciseIds: [] })
-  }
   return (
     <div className="page">
-      <div className="hero">
-        <div className="hero-logo">💪</div>
+      <div className="hero compact">
         <h1>{t('noActiveWorkout')}</h1>
-        <p className="muted">{t('noActiveHint')}</p>
-        <button className="btn primary big" onClick={start}>
-          {t('startWorkout')}
-        </button>
       </div>
+      <PlansSection />
+      <button className="btn secondary full" onClick={() => void startWorkout()}>
+        + {t('freeWorkout')}
+      </button>
       {!!recent?.length && (
         <section>
           <h3 className="group-title">{t('recentWorkouts')}</h3>
@@ -157,22 +155,31 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
   const [reps, setReps] = useState<number>()
   const [editing, setEditing] = useState<WorkoutSet>()
   const [pr, setPr] = useState(false)
+  const [suggestion, setSuggestion] = useState<{ verdict: Verdict; reps: number; weight: number; next: number }>()
 
-  // Prefill with the last set of today, otherwise what you did last time.
+  // Prefill with the last set of today; for the first set use the working weight.
   useEffect(() => {
-    if (!sets || !previous || weight !== undefined) return
-    const last = sets.at(-1) ?? previous[0]
-    setWeight(last?.weight ?? 20)
-    setReps(last?.reps ?? 10)
-  }, [sets, previous, weight])
+    if (!sets || !previous || !exercise || weight !== undefined) return
+    const last = sets.at(-1)
+    setWeight(last?.weight ?? exercise.workingWeight ?? previous[0]?.weight ?? 20)
+    setReps(last?.reps ?? previous[0]?.reps ?? settings.repMin)
+  }, [sets, previous, exercise, weight, settings.repMin])
 
   if (!exercise || !sets || weight === undefined || reps === undefined) return null
+  const progression = usesProgression(exercise)
 
   const saveSet = async () => {
     unlockAudio()
     const best = await bestEstimate(exerciseId)
+    const isFirst = sets.length === 0
     await db.sets.add({ id: uid(), workoutId: workout.id, exerciseId, weight, reps, createdAt: Date.now() })
     rest.start(exercise.restSeconds ?? settings.defaultRest)
+    if (isFirst && progression) {
+      // Only the first set decides the weight for next time.
+      const verdict = judgeFirstSet(reps, settings.repMin, settings.repMax)
+      await db.exercises.update(exerciseId, { workingWeight: weight })
+      setSuggestion({ verdict, reps, weight, next: suggestedWeight(weight, verdict, settings.weightStep) })
+    }
     if (best > 0 && weight > 0 && estimate1RM(weight, reps) > best) {
       setPr(true)
       setTimeout(() => setPr(false), 4000)
@@ -202,6 +209,14 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
         </button>
       </header>
 
+      {progression && (
+        <p className="goal-line small">
+          🎯 {t('workingWeight')}: <strong>{exercise.workingWeight !== undefined ? `${fmt(exercise.workingWeight, lang)} kg` : '–'}</strong>
+          {' · '}
+          {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
+        </p>
+      )}
+
       <p className="muted small">
         {previous?.length
           ? `${t('lastTime')}: ${previous.map((s) => `${fmt(s.weight, lang)}×${s.reps}`).join(' · ')}`
@@ -225,6 +240,16 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
 
       {pr && <div className="pr-badge">🏆 {t('newPR')}</div>}
 
+      {suggestion && (
+        <ProgressionPrompt
+          {...suggestion}
+          onDone={async (next) => {
+            if (next !== undefined) await db.exercises.update(exerciseId, { workingWeight: next })
+            setSuggestion(undefined)
+          }}
+        />
+      )}
+
       <div className="entry">
         <Stepper label={`${t('weight')} (kg)`} value={weight} onChange={setWeight} step={settings.weightStep} />
         <Stepper label={t('reps')} value={reps} onChange={setReps} step={1} />
@@ -235,6 +260,55 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
 
       {editing && <EditSetSheet set={editing} exercise={exercise} onClose={() => setEditing(undefined)} />}
     </article>
+  )
+}
+
+/** Shown after the first set: keep the weight, or pick the new one for next time. */
+function ProgressionPrompt({
+  verdict,
+  reps,
+  weight,
+  next,
+  onDone,
+}: {
+  verdict: Verdict
+  reps: number
+  weight: number
+  next: number
+  onDone: (next?: number) => void
+}) {
+  const { t, lang } = useI18n()
+  const { settings } = useSettings()
+  const [value, setValue] = useState(next)
+  const done = useRef(onDone)
+  done.current = onDone
+
+  useEffect(() => {
+    if (verdict !== 'keep') return
+    const id = setTimeout(() => done.current(), 6000)
+    return () => clearTimeout(id)
+  }, [verdict])
+
+  if (verdict === 'keep') {
+    return (
+      <button className="prog prog-keep" onClick={() => onDone()}>
+        {t('progKeep', { reps, weight: fmt(weight, lang) })}
+      </button>
+    )
+  }
+  return (
+    <div className={`prog prog-${verdict}`}>
+      <p>{t(verdict === 'up' ? 'progUp' : 'progDown', { reps })}</p>
+      <Stepper label={t('workingWeight')} value={value} onChange={setValue} step={settings.weightStep} />
+      <div className="row">
+        <button className="btn primary small grow" onClick={() => onDone(value)}>
+          {t('applyWeight', { weight: fmt(value, lang) })}
+        </button>
+        <button className="btn secondary small" onClick={() => onDone(weight)}>
+          {t('keepWeight', { weight: fmt(weight, lang) })}
+        </button>
+      </div>
+    </div>
   )
 }
 

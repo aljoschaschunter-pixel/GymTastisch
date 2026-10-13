@@ -8,7 +8,11 @@ const blobToDataUrl = (b: Blob) =>
     r.readAsDataURL(b)
   })
 
-const dataUrlToBlob = async (u: string) => (await fetch(u)).blob()
+// Only accept embedded images, never a URL to somewhere else.
+const dataUrlToBlob = async (u: string) => {
+  if (!/^data:image\/(png|jpe?g|webp|gif|heic);base64,/i.test(u)) return undefined
+  return (await fetch(u)).blob()
+}
 
 export async function exportBackup() {
   const exercises = await Promise.all(
@@ -21,6 +25,7 @@ export async function exportBackup() {
     exercises,
     workouts: await db.workouts.toArray(),
     sets: await db.sets.toArray(),
+    plans: await db.plans.toArray(),
   }
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
   const name = `gymtastisch-${new Date().toISOString().slice(0, 10)}.json`
@@ -46,16 +51,20 @@ export async function exportBackup() {
 export async function importBackup(file: File) {
   const data = JSON.parse(await file.text())
   if (data?.app !== 'gymtastisch' || !Array.isArray(data.exercises)) throw new Error('invalid backup')
+  for (const key of ['workouts', 'sets', 'plans']) {
+    if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('invalid backup')
+  }
   const exercises: Exercise[] = await Promise.all(
     data.exercises.map(async (e: Exercise & { photo?: string }) => ({
       ...e,
-      photo: e.photo ? await dataUrlToBlob(e.photo) : undefined,
+      photo: typeof e.photo === 'string' ? await dataUrlToBlob(e.photo) : undefined,
     })),
   )
-  await db.transaction('rw', db.exercises, db.workouts, db.sets, async () => {
-    await Promise.all([db.exercises.clear(), db.workouts.clear(), db.sets.clear()])
+  await db.transaction('rw', [db.exercises, db.workouts, db.sets, db.plans], async () => {
+    await Promise.all([db.exercises.clear(), db.workouts.clear(), db.sets.clear(), db.plans.clear()])
     await db.exercises.bulkAdd(exercises)
     await db.workouts.bulkAdd(data.workouts ?? [])
     await db.sets.bulkAdd(data.sets ?? [])
+    await db.plans.bulkAdd(data.plans ?? [])
   })
 }
