@@ -84,6 +84,12 @@ export function Stepper({
 }
 
 const round = (n: number) => Math.round(n * 100) / 100
+
+/** "60 kg × 10", or "Bodyweight × 12" when no extra weight was used. */
+export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string) =>
+  `${weight > 0 ? `${fmt(weight, lang)} kg` : bodyweightLabel} × ${reps}`
+
+export const STEP_OPTIONS = [0.5, 1, 1.25, 2, 2.5, 4, 5, 7.5, 10]
 export const fmt = (n: number, lang: Lang) => (lang === 'de' ? String(round(n)).replace('.', ',') : String(round(n)))
 
 /** Downscale a camera photo so the database stays small. */

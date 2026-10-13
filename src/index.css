@@ -1681,3 +1681,26 @@ select {
   font-weight: 600;
   color: var(--muted);
 }
+
+.form label.switch-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.form label.switch-row small {
+  font-size: 13px;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.group-note {
+  margin: 6px 4px 0;
+}

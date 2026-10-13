@@ -5,7 +5,8 @@ import { useI18n } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { Icon } from './Icon'
-import { fmt } from './ui'
+import { isBodyweight } from '../progression'
+import { setText } from './ui'
 
 export function HistoryView() {
   const { t } = useI18n()
@@ -81,7 +82,11 @@ export function WorkoutSummary({ workout, deletable }: { workout: Workout; delet
                   {exerciseName(g.exercise, t)}
                 </button>
                 <span className="muted small">
-                  {g.sets.map((s) => `${fmt(s.weight, lang)}×${s.reps}`).join(' · ')}
+                  {g.sets
+                    .map((s) =>
+                      setText(s.weight, s.reps, lang, g.exercise && isBodyweight(g.exercise) ? t('bodyweightShort') : '0 kg'),
+                    )
+                    .join(' · ')}
                 </span>
               </li>
             ))}

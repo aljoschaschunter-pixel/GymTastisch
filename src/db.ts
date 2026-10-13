@@ -34,6 +34,10 @@ export interface Exercise {
   restSeconds?: number
   /** Weight for the first set next time (progressive overload). */
   workingWeight?: number
+  /** Smallest weight change in kg, e.g. the plate or stack increment of a machine. */
+  weightStep?: number
+  /** Done with body weight; logged weight is extra load. Built-ins have a default. */
+  bodyweight?: boolean
   archived?: boolean
   createdAt: number
 }

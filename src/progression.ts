@@ -13,10 +13,27 @@ export function judgeFirstSet(reps: number, repMin: number, repMax: number): Ver
   return 'keep'
 }
 
+/** Big lower-body lifts move in larger jumps. */
+const HEAVY_LOWER = new Set(['squat', 'deadlift', 'leg_press', 'romanian_deadlift', 'hip_thrust'])
+
+/** Built-in exercises done with body weight; extra load is optional. */
+const BODYWEIGHT = new Set(['push_up', 'pull_up', 'dips', 'lunge', 'back_extension', 'plank', 'crunch', 'hanging_leg_raise'])
+
+export const isBodyweight = (e: Exercise) => e.bodyweight ?? (!!e.builtin && BODYWEIGHT.has(e.builtin))
+
+/** Smallest weight change for this exercise: its own setting, else 5 kg for big lower-body lifts, else the global default. */
+export const stepFor = (e: Exercise, defaultStep: number) =>
+  e.weightStep ?? (e.builtin && HEAVY_LOWER.has(e.builtin) ? 5 : defaultStep)
+
+/**
+ * Change the load by about 5 %, within the commonly recommended 2–10 %
+ * (ACSM), rounded to what the equipment allows and at least one step.
+ */
 export function suggestedWeight(weight: number, verdict: Verdict, step: number) {
-  if (verdict === 'up') return weight + step
-  if (verdict === 'down') return Math.max(0, weight - step)
-  return weight
+  if (verdict === 'keep' || step <= 0) return weight
+  const change = Math.max(step, Math.round((weight * 0.05) / step) * step)
+  const next = verdict === 'up' ? weight + change : Math.max(0, weight - change)
+  return Math.round(next * 100) / 100
 }
 
 /** Cardio machines don't use weights, so they skip progression. */

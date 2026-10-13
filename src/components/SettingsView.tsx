@@ -4,6 +4,7 @@ import { useI18n } from '../i18n'
 import { useSettings, type Settings } from '../settings'
 import { mmss } from './ExercisesView'
 import { Icon } from './Icon'
+import { fmt, STEP_OPTIONS } from './ui'
 
 const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -14,7 +15,7 @@ const MIN_OPTIONS = REP_OPTIONS.slice(0, -1)
 const MAX_OPTIONS = REP_OPTIONS.slice(1)
 
 export function SettingsView() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { settings, update } = useSettings()
 
   return (
@@ -80,14 +81,16 @@ export function SettingsView() {
         <label className="set-row">
           <span>{t('weightStep')}</span>
           <select value={settings.weightStep} onChange={(e) => update({ weightStep: Number(e.target.value) })}>
-            {[0.5, 1, 1.25, 2, 2.5, 5].map((s) => (
+            {STEP_OPTIONS.map((s) => (
               <option key={s} value={s}>
-                {s} kg
+                {fmt(s, lang)} kg
               </option>
             ))}
           </select>
         </label>
       </div>
+
+      <p className="muted small group-note">{t('stepHint')}</p>
 
       <h3 className="group-title">{t('sectionProgression')}</h3>
       <div className="settings-group">
