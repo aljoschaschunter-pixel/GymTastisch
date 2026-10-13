@@ -86,38 +86,6 @@ export async function seedExercises() {
 export const exerciseName = (e: Exercise | undefined, t: T) =>
   !e ? '?' : e.name || (e.builtin ? t(`ex_${e.builtin}` as Key) : '?')
 
-/** Built-in exercises whose illustration is not in public/exercises yet; they show a placeholder. */
-const WITHOUT_IMAGE = new Set([
-  'db_bench_press',
-  'incline_bench_press',
-  'incline_chest_press_machine',
-  'pec_fly_db',
-  'db_row',
-  'row_machine',
-  'assisted_pull_up',
-  'close_grip_pulldown',
-  'hack_squat',
-  'goblet_squat',
-  'bulgarian_split_squat',
-  'lying_leg_curl',
-  'seated_calf_raise',
-  'glute_kickback',
-  'db_shoulder_press',
-  'lateral_raise_machine',
-  'cable_lateral_raise',
-  'biceps_curl_machine',
-  'barbell_curl',
-  'cable_curl',
-  'preacher_curl',
-  'triceps_machine',
-  'overhead_triceps_extension',
-  'cable_crunch',
-  'leg_raise',
-  'russian_twist',
-  'stair_climber',
-  'incline_walk',
-])
-
-/** Illustration for built-in exercises, if one exists. */
+/** Illustration for built-in exercises. */
 export const builtinImage = (e: Exercise) =>
-  e.builtin && !WITHOUT_IMAGE.has(e.builtin) ? `${import.meta.env.BASE_URL}exercises/${e.builtin}.jpg` : undefined
+  e.builtin ? `${import.meta.env.BASE_URL}exercises/${e.builtin}.jpg` : undefined

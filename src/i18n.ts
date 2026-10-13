@@ -574,7 +574,7 @@ const de: Record<Key, string> = {
   ex_db_shoulder_press: 'Schulterdrücken (Kurzhantel)',
   ex_lateral_raise_machine: 'Seitheben an der Maschine',
   ex_cable_lateral_raise: 'Seitheben am Kabel',
-  ex_biceps_curl_machine: 'Bizepsmaschine',
+  ex_biceps_curl_machine: 'Bizepscurls (Maschine)',
   ex_barbell_curl: 'Langhantelcurls',
   ex_cable_curl: 'Bizepscurls am Kabel',
   ex_preacher_curl: 'Scottcurls',
