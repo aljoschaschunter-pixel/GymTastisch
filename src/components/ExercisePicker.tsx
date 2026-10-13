@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, MUSCLE_GROUPS, uid, type Exercise } from '../db'
 import { useI18n, type Key } from '../i18n'
 import { exerciseName } from '../seed'
+import { Icon } from './Icon'
 import { ExerciseThumb } from './ui'
 
 const norm = (s: string) =>
@@ -47,16 +48,10 @@ export function ExercisePicker({ selected, onPick }: { selected: string[]; onPic
 
   return (
     <div className="picker">
-      <input
-        className="search"
-        type="search"
-        placeholder={t('searchExercises')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <SearchField value={query} onChange={setQuery} />
       {trimmed && !exact && (
         <button className="btn secondary full" onClick={async () => onPick(await createExercise(trimmed))}>
-          + {t('createNamed', { name: trimmed })}
+          <Icon name="plus" size={18} /> {t('createNamed', { name: trimmed })}
         </button>
       )}
       {!list.length && <p className="muted">{t('noResults')}</p>}
@@ -69,7 +64,7 @@ export function ExercisePicker({ selected, onPick }: { selected: string[]; onPic
                 <button className="list-item" onClick={() => onPick(e.id)}>
                   <ExerciseThumb exercise={e} />
                   <span className="grow">{name}</span>
-                  {selected.includes(e.id) && <span className="check">✓</span>}
+                  {selected.includes(e.id) && <Icon name="check" size={20} className="check" />}
                 </button>
               </li>
             ))}
@@ -77,5 +72,15 @@ export function ExercisePicker({ selected, onPick }: { selected: string[]; onPic
         </section>
       ))}
     </div>
+  )
+}
+
+export function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useI18n()
+  return (
+    <label className="search">
+      <Icon name="search" size={18} />
+      <input type="search" placeholder={t('searchExercises')} value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
   )
 }

@@ -6,9 +6,11 @@ import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
-import { groupByMuscle, useExerciseList } from './ExercisePicker'
+import { groupByMuscle, SearchField, useExerciseList } from './ExercisePicker'
+import { Icon } from './Icon'
 import { EditSetSheet } from './WorkoutView'
-import { ExerciseThumb, fmt, Photo, Sheet, shrinkImage } from './ui'
+import { isBodyweight, stepFor } from '../progression'
+import { ExerciseThumb, fmt, Photo, setText, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
 
 export function ExercisesView() {
   const { t } = useI18n()
@@ -22,16 +24,10 @@ export function ExercisesView() {
       <header className="page-head">
         <h1>{t('tabExercises')}</h1>
         <button className="btn primary small" onClick={() => setCreating(true)}>
-          + {t('newExercise')}
+          <Icon name="plus" size={18} /> {t('newExercise')}
         </button>
       </header>
-      <input
-        className="search"
-        type="search"
-        placeholder={t('searchExercises')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <SearchField value={query} onChange={setQuery} />
       {!list.length && <p className="muted">{t('noResults')}</p>}
       {groupByMuscle(list).map(({ group, items }) => (
         <section key={group}>
@@ -42,7 +38,7 @@ export function ExercisesView() {
                 <button className="list-item" onClick={() => openExercise(e.id)}>
                   <ExerciseThumb exercise={e} />
                   <span className="grow">{name}</span>
-                  <span className="chev">›</span>
+                  <Icon name="chevronRight" size={18} className="chev" />
                 </button>
               </li>
             ))}
@@ -73,7 +69,7 @@ export function ExerciseForm({
   initialName?: string
   onClose: (id?: string) => void
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { settings } = useSettings()
   const builtinName = exercise?.builtin ? t(`ex_${exercise.builtin}` as Key) : ''
   const [name, setName] = useState(exercise?.name ?? (exercise ? '' : initialName))
@@ -82,6 +78,9 @@ export function ExerciseForm({
   const [photo, setPhoto] = useState<Blob | undefined>(exercise?.photo)
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
   const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
+  const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
+  const [bodyweight, setBodyweight] = useState(exercise ? isBodyweight(exercise) : false)
+  const defaultStep = stepFor({ ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined }, settings.weightStep)
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
@@ -95,6 +94,8 @@ export function ExerciseForm({
       photo,
       restSeconds,
       workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
+      weightStep,
+      bodyweight,
     }
     if (exercise) {
       await db.exercises.update(exercise.id, data)
@@ -140,7 +141,7 @@ export function ExerciseForm({
           {photo && <Photo blob={photo} className="photo-preview" />}
           <div className="row">
             <label className="btn secondary small file-btn">
-              {photo ? t('changePhoto') : `📷 ${t('addPhoto')}`}
+              <Icon name="camera" size={18} /> {photo ? t('changePhoto') : t('addPhoto')}
               <input
                 type="file"
                 accept="image/*"
@@ -163,10 +164,43 @@ export function ExerciseForm({
           <textarea value={notes} rows={3} placeholder={t('notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
         </label>
         {group !== 'cardio' && (
-          <label>
-            {t('workingWeight')} (kg)
-            <input inputMode="decimal" value={workingWeight} placeholder="–" onChange={(e) => setWorkingWeight(e.target.value)} />
-          </label>
+          <>
+            <label className="switch-row">
+              <span className="grow">
+                {t('bodyweightExercise')}
+                <small className="block muted">{t('bodyweightHint')}</small>
+              </span>
+              <input
+                type="checkbox"
+                className="switch"
+                checked={bodyweight}
+                onChange={(e) => setBodyweight(e.target.checked)}
+              />
+            </label>
+            <label>
+              {t(bodyweight ? 'addedWeight' : 'workingWeight')} (kg)
+              <input
+                inputMode="decimal"
+                value={workingWeight}
+                placeholder={bodyweight ? '0' : '–'}
+                onChange={(e) => setWorkingWeight(e.target.value)}
+              />
+            </label>
+            <label>
+              {t('exWeightStep')}
+              <select
+                value={weightStep ?? ''}
+                onChange={(e) => setWeightStep(e.target.value ? Number(e.target.value) : undefined)}
+              >
+                <option value="">{t('stepDefault', { step: fmt(defaultStep, lang) })}</option>
+                {STEP_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {fmt(s, lang)} kg
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
         )}
         <label>
           {t('restTime')}
@@ -240,14 +274,16 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
     <div className="page detail">
       <header className="page-head">
         <button className="btn ghost small back" onClick={onBack}>
-          ‹ {t('back')}
+          <Icon name="chevronLeft" size={20} /> {t('back')}
         </button>
         <button className="btn secondary small" onClick={() => setEditing(true)}>
-          ✎ {t('editExercise')}
+          <Icon name="pencil" size={16} /> {t('edit')}
         </button>
       </header>
-      <h1>{exerciseName(exercise, t)}</h1>
-      <p className="muted small">{t(`group_${exercise.group}` as Key)}</p>
+      <div>
+        <span className="eyebrow">{t(`group_${exercise.group}` as Key)}</span>
+        <h1>{exerciseName(exercise, t)}</h1>
+      </div>
       {(exercise.photo || exercise.builtin) && <ExerciseThumb exercise={exercise} className="photo-large" />}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
 
@@ -288,7 +324,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
                 <span className="set-chips">
                   {s.sets.map((x) => (
                     <button key={x.id} className="chip" onClick={() => setEditSet(x)}>
-                      {fmt(x.weight, lang)}×{x.reps}
+                      {setText(x.weight, x.reps, lang, isBodyweight(exercise) ? t('bodyweightShort') : '0 kg')}
                     </button>
                   ))}
                 </span>

@@ -26,6 +26,7 @@ export async function exportBackup() {
     workouts: await db.workouts.toArray(),
     sets: await db.sets.toArray(),
     plans: await db.plans.toArray(),
+    bodyweights: await db.bodyweights.toArray(),
   }
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
   const name = `gymtastisch-${new Date().toISOString().slice(0, 10)}.json`
@@ -51,7 +52,7 @@ export async function exportBackup() {
 export async function importBackup(file: File) {
   const data = JSON.parse(await file.text())
   if (data?.app !== 'gymtastisch' || !Array.isArray(data.exercises)) throw new Error('invalid backup')
-  for (const key of ['workouts', 'sets', 'plans']) {
+  for (const key of ['workouts', 'sets', 'plans', 'bodyweights']) {
     if (data[key] !== undefined && !Array.isArray(data[key])) throw new Error('invalid backup')
   }
   const exercises: Exercise[] = await Promise.all(
@@ -60,11 +61,18 @@ export async function importBackup(file: File) {
       photo: typeof e.photo === 'string' ? await dataUrlToBlob(e.photo) : undefined,
     })),
   )
-  await db.transaction('rw', [db.exercises, db.workouts, db.sets, db.plans], async () => {
-    await Promise.all([db.exercises.clear(), db.workouts.clear(), db.sets.clear(), db.plans.clear()])
+  await db.transaction('rw', [db.exercises, db.workouts, db.sets, db.plans, db.bodyweights], async () => {
+    await Promise.all([
+      db.exercises.clear(),
+      db.workouts.clear(),
+      db.sets.clear(),
+      db.plans.clear(),
+      db.bodyweights.clear(),
+    ])
     await db.exercises.bulkAdd(exercises)
     await db.workouts.bulkAdd(data.workouts ?? [])
     await db.sets.bulkAdd(data.sets ?? [])
     await db.plans.bulkAdd(data.plans ?? [])
+    await db.bodyweights.bulkAdd(data.bodyweights ?? [])
   })
 }

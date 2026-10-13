@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Exercise } from '../db'
 import { useI18n, type Lang } from '../i18n'
 import { builtinImage } from '../seed'
+import { Icon } from './Icon'
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -16,8 +17,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ✕
+          <button className="icon-btn close-btn" onClick={onClose} aria-label="Close">
+            <Icon name="x" size={18} />
           </button>
         </div>
         <div className="sheet-body">{children}</div>
@@ -83,6 +84,12 @@ export function Stepper({
 }
 
 const round = (n: number) => Math.round(n * 100) / 100
+
+/** "60 kg × 10", or "Bodyweight × 12" when no extra weight was used. */
+export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string) =>
+  `${weight > 0 ? `${fmt(weight, lang)} kg` : bodyweightLabel} × ${reps}`
+
+export const STEP_OPTIONS = [0.5, 1, 1.25, 2, 2.5, 4, 5, 7.5, 10]
 export const fmt = (n: number, lang: Lang) => (lang === 'de' ? String(round(n)).replace('.', ',') : String(round(n)))
 
 /** Downscale a camera photo so the database stays small. */

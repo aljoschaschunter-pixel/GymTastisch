@@ -4,7 +4,9 @@ import { db, type Workout } from '../db'
 import { useI18n } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
-import { fmt } from './ui'
+import { Icon } from './Icon'
+import { isBodyweight } from '../progression'
+import { setText } from './ui'
 
 export function HistoryView() {
   const { t } = useI18n()
@@ -33,16 +35,15 @@ export function WorkoutSummary({ workout, deletable }: { workout: Workout; delet
       sets.some((s) => s.exerciseId === id),
     )
     const exercises = await db.exercises.bulkGet(ids)
-    return { sets, groups: ids.map((id, i) => ({ id, exercise: exercises[i], sets: sets.filter((s) => s.exerciseId === id) })) }
+    const plan = workout.planId ? await db.plans.get(workout.planId) : undefined
+    return { plan, sets, groups: ids.map((id, i) => ({ id, exercise: exercises[i], sets: sets.filter((s) => s.exerciseId === id) })) }
   }, [workout])
   if (!data) return null
 
-  const date = new Date(workout.startedAt).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  const locale = lang === 'de' ? 'de-DE' : 'en-GB'
+  const started = new Date(workout.startedAt)
+  const weekday = started.toLocaleDateString(locale, { weekday: 'long' })
+  const month = started.toLocaleDateString(locale, { month: 'short' }).replace('.', '')
   const mins = workout.endedAt ? Math.round((workout.endedAt - workout.startedAt) / 60000) : undefined
 
   const remove = async () => {
@@ -56,14 +57,18 @@ export function WorkoutSummary({ workout, deletable }: { workout: Workout; delet
   return (
     <article className="card history-card">
       <button className="history-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <div>
-          <strong>{date}</strong>
+        <span className="date-tile">
+          <strong>{started.getDate()}</strong>
+          <span>{month}</span>
+        </span>
+        <div className="grow min0">
+          <strong className="clamp block">{data.plan?.name ?? weekday}</strong>
           <div className="muted small">
             {mins !== undefined ? `${mins} ${t('minutes')}` : t('inProgress')} · {data.groups.length} {t('exercises')} ·{' '}
             {data.sets.length} {t('sets')}
           </div>
         </div>
-        <span className="chev">{open ? '▴' : '▾'}</span>
+        <Icon name="chevronDown" size={20} className={`chev ${open ? 'flip' : ''}`} />
       </button>
       {!open && (
         <p className="small muted clamp">{data.groups.map((g) => exerciseName(g.exercise, t)).join(', ')}</p>
@@ -77,7 +82,11 @@ export function WorkoutSummary({ workout, deletable }: { workout: Workout; delet
                   {exerciseName(g.exercise, t)}
                 </button>
                 <span className="muted small">
-                  {g.sets.map((s) => `${fmt(s.weight, lang)}×${s.reps}`).join(' · ')}
+                  {g.sets
+                    .map((s) =>
+                      setText(s.weight, s.reps, lang, g.exercise && isBodyweight(g.exercise) ? t('bodyweightShort') : '0 kg'),
+                    )
+                    .join(' · ')}
                 </span>
               </li>
             ))}
