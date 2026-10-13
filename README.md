@@ -29,3 +29,7 @@ In the repo settings, **Pages → Build and deployment → Source** must be set 
 - No vibration (Safari has no Vibration API).
 - When the phone is locked, the timer can't beep; the app shows "rest's over" when you come back.
   A lock-screen notification would need Web Push plus a small server (possible later).
+
+## Credits
+
+Exercise photos are from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense).
