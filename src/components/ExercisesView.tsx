@@ -6,7 +6,8 @@ import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
-import { groupByMuscle, useExerciseList } from './ExercisePicker'
+import { groupByMuscle, SearchField, useExerciseList } from './ExercisePicker'
+import { Icon } from './Icon'
 import { EditSetSheet } from './WorkoutView'
 import { ExerciseThumb, fmt, Photo, Sheet, shrinkImage } from './ui'
 
@@ -22,16 +23,10 @@ export function ExercisesView() {
       <header className="page-head">
         <h1>{t('tabExercises')}</h1>
         <button className="btn primary small" onClick={() => setCreating(true)}>
-          + {t('newExercise')}
+          <Icon name="plus" size={18} /> {t('newExercise')}
         </button>
       </header>
-      <input
-        className="search"
-        type="search"
-        placeholder={t('searchExercises')}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <SearchField value={query} onChange={setQuery} />
       {!list.length && <p className="muted">{t('noResults')}</p>}
       {groupByMuscle(list).map(({ group, items }) => (
         <section key={group}>
@@ -42,7 +37,7 @@ export function ExercisesView() {
                 <button className="list-item" onClick={() => openExercise(e.id)}>
                   <ExerciseThumb exercise={e} />
                   <span className="grow">{name}</span>
-                  <span className="chev">›</span>
+                  <Icon name="chevronRight" size={18} className="chev" />
                 </button>
               </li>
             ))}
@@ -140,7 +135,7 @@ export function ExerciseForm({
           {photo && <Photo blob={photo} className="photo-preview" />}
           <div className="row">
             <label className="btn secondary small file-btn">
-              {photo ? t('changePhoto') : `📷 ${t('addPhoto')}`}
+              <Icon name="camera" size={18} /> {photo ? t('changePhoto') : t('addPhoto')}
               <input
                 type="file"
                 accept="image/*"
@@ -240,14 +235,16 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
     <div className="page detail">
       <header className="page-head">
         <button className="btn ghost small back" onClick={onBack}>
-          ‹ {t('back')}
+          <Icon name="chevronLeft" size={20} /> {t('back')}
         </button>
         <button className="btn secondary small" onClick={() => setEditing(true)}>
-          ✎ {t('editExercise')}
+          <Icon name="pencil" size={16} /> {t('edit')}
         </button>
       </header>
-      <h1>{exerciseName(exercise, t)}</h1>
-      <p className="muted small">{t(`group_${exercise.group}` as Key)}</p>
+      <div>
+        <span className="eyebrow">{t(`group_${exercise.group}` as Key)}</span>
+        <h1>{exerciseName(exercise, t)}</h1>
+      </div>
       {(exercise.photo || exercise.builtin) && <ExerciseThumb exercise={exercise} className="photo-large" />}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
 

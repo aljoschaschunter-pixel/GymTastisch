@@ -3,6 +3,7 @@ import { beep, unlockAudio } from '../device'
 import { useI18n } from '../i18n'
 import { useSettings, type Settings } from '../settings'
 import { mmss } from './ExercisesView'
+import { Icon } from './Icon'
 
 const isStandalone = () =>
   window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -24,17 +25,50 @@ export function SettingsView() {
 
       {!isStandalone() && <p className="hint">{t('installHint')}</p>}
 
-      <div className="card form">
-        <label>
-          {t('language')}
+      <h3 className="group-title">{t('sectionGeneral')}</h3>
+      <div className="settings-group">
+        <label className="set-row">
+          <span>{t('language')}</span>
           <select value={settings.lang} onChange={(e) => update({ lang: e.target.value as Settings['lang'] })}>
             <option value="auto">{t('langAuto')}</option>
             <option value="de">Deutsch</option>
             <option value="en">English</option>
           </select>
         </label>
-        <label>
-          {t('defaultRest')}
+        <div className="set-row">
+          <span className="grow">{t('sound')}</span>
+          <button
+            className="btn secondary tiny"
+            onClick={() => {
+              unlockAudio()
+              setTimeout(beep, 100)
+            }}
+          >
+            <Icon name="bell" size={15} /> {t('testSound')}
+          </button>
+          <input
+            type="checkbox"
+            className="switch"
+            aria-label={t('sound')}
+            checked={settings.sound}
+            onChange={(e) => update({ sound: e.target.checked })}
+          />
+        </div>
+        <label className="set-row switch-label">
+          <span>{t('keepAwake')}</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={settings.keepAwake}
+            onChange={(e) => update({ keepAwake: e.target.checked })}
+          />
+        </label>
+      </div>
+
+      <h3 className="group-title">{t('sectionTraining')}</h3>
+      <div className="settings-group">
+        <label className="set-row">
+          <span>{t('defaultRest')}</span>
           <select value={settings.defaultRest} onChange={(e) => update({ defaultRest: Number(e.target.value) })}>
             {[45, 60, 90, 120, 150, 180, 240, 300].map((s) => (
               <option key={s} value={s}>
@@ -43,9 +77,23 @@ export function SettingsView() {
             ))}
           </select>
         </label>
-        <div className="field">
+        <label className="set-row">
+          <span>{t('weightStep')}</span>
+          <select value={settings.weightStep} onChange={(e) => update({ weightStep: Number(e.target.value) })}>
+            {[0.5, 1, 1.25, 2, 2.5, 5].map((s) => (
+              <option key={s} value={s}>
+                {s} kg
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <h3 className="group-title">{t('sectionProgression')}</h3>
+      <div className="settings-group">
+        <div className="set-row">
           <span>{t('repRange')}</span>
-          <div className="range-row">
+          <span className="range-row">
             <select
               value={settings.repMin}
               aria-label="min"
@@ -60,7 +108,7 @@ export function SettingsView() {
                 </option>
               ))}
             </select>
-            <span>–</span>
+            <span className="muted">–</span>
             <select
               value={settings.repMax}
               aria-label="max"
@@ -75,56 +123,35 @@ export function SettingsView() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="rule-box small">
-            <span className="muted">{t('repRangeHint')}</span>
-            {settings.repMin > 1 && <span>⬇︎ {t('ruleDown', { n: settings.repMin - 1 })}</span>}
-            {settings.repMax > settings.repMin && (
-              <span>= {t('ruleKeep', { a: settings.repMin, b: settings.repMax - 1 })}</span>
-            )}
-            <span>⬆︎ {t('ruleUp', { n: settings.repMax })}</span>
-          </div>
+          </span>
         </div>
-        <label>
-          {t('weightStep')}
-          <select value={settings.weightStep} onChange={(e) => update({ weightStep: Number(e.target.value) })}>
-            {[0.5, 1, 1.25, 2, 2.5, 5].map((s) => (
-              <option key={s} value={s}>
-                {s} kg
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="toggle-row">
-          <label className="toggle">
-            <input type="checkbox" checked={settings.sound} onChange={(e) => update({ sound: e.target.checked })} />
-            <span>{t('sound')}</span>
-          </label>
-          <button
-            className="btn secondary small"
-            onClick={() => {
-              unlockAudio()
-              setTimeout(beep, 100)
-            }}
-          >
-            🔔 {t('testSound')}
-          </button>
+        <div className="rule-box">
+          <span className="muted small">{t('repRangeHint')}</span>
+          {settings.repMin > 1 && (
+            <span className="rule down">
+              <Icon name="trendDown" size={16} /> {t('ruleDown', { n: settings.repMin - 1 })}
+            </span>
+          )}
+          {settings.repMax > settings.repMin && (
+            <span className="rule keep">
+              <Icon name="check" size={16} /> {t('ruleKeep', { a: settings.repMin, b: settings.repMax - 1 })}
+            </span>
+          )}
+          <span className="rule up">
+            <Icon name="trendUp" size={16} /> {t('ruleUp', { n: settings.repMax })}
+          </span>
         </div>
-        <label className="toggle">
-          <input type="checkbox" checked={settings.keepAwake} onChange={(e) => update({ keepAwake: e.target.checked })} />
-          <span>{t('keepAwake')}</span>
-        </label>
       </div>
 
-      <h2>{t('backup')}</h2>
-      <div className="card">
+      <h3 className="group-title">{t('backup')}</h3>
+      <div className="settings-group padded">
         <p className="muted small">{t('backupHint')}</p>
-        <div className="row">
+        <div className="row two">
           <button className="btn secondary" onClick={() => void exportBackup()}>
-            ⬆︎ {t('exportData')}
+            <Icon name="upload" size={18} /> {t('exportData')}
           </button>
           <label className="btn secondary file-btn">
-            ⬇︎ {t('importData')}
+            <Icon name="download" size={18} /> {t('importData')}
             <input
               type="file"
               accept="application/json,.json"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ExerciseDetail, ExercisesView } from './components/ExercisesView'
 import { HistoryView } from './components/HistoryView'
+import { Icon, type IconName } from './components/Icon'
 import { loadRest, RestContext, RestTimerBar, saveRest, type RestState } from './components/RestTimer'
 import { SettingsView } from './components/SettingsView'
 import { WorkoutView } from './components/WorkoutView'
@@ -10,11 +11,11 @@ import { NavContext, type Tab } from './nav'
 import { seedExercises } from './seed'
 import { loadSettings, saveSettings, SettingsContext, type Settings } from './settings'
 
-const TABS: { id: Tab; icon: string; label: Key }[] = [
-  { id: 'workout', icon: '🏋️', label: 'tabWorkout' },
-  { id: 'exercises', icon: '📋', label: 'tabExercises' },
-  { id: 'history', icon: '📅', label: 'tabHistory' },
-  { id: 'settings', icon: '⚙️', label: 'tabSettings' },
+const TABS: { id: Tab; icon: IconName; label: Key }[] = [
+  { id: 'workout', icon: 'dumbbell', label: 'tabWorkout' },
+  { id: 'exercises', icon: 'list', label: 'tabExercises' },
+  { id: 'history', icon: 'calendar', label: 'tabHistory' },
+  { id: 'settings', icon: 'settings', label: 'tabSettings' },
 ]
 
 export default function App() {
@@ -112,9 +113,7 @@ export default function App() {
                   onClick={() => nav.setTab(x.id)}
                   aria-current={tab === x.id ? 'page' : undefined}
                 >
-                  <span className="tab-icon" aria-hidden>
-                    {x.icon}
-                  </span>
+                  <Icon name={x.icon} size={24} />
                   <span>{i18n.t(x.label)}</span>
                 </button>
               ))}
@@ -127,9 +126,9 @@ export default function App() {
 }
 
 function Welcome({ onPick }: { onPick: (lang: Lang) => void }) {
-  const choices: { lang: Lang; label: string; flag: string }[] = [
-    { lang: 'de', label: 'Deutsch', flag: '🇩🇪' },
-    { lang: 'en', label: 'English', flag: '🇬🇧' },
+  const choices: { lang: Lang; label: string; code: string }[] = [
+    { lang: 'de', label: 'Deutsch', code: 'DE' },
+    { lang: 'en', label: 'English', code: 'EN' },
   ]
   // Suggested language first.
   if (detectLang() === 'en') choices.reverse()
@@ -140,8 +139,12 @@ function Welcome({ onPick }: { onPick: (lang: Lang) => void }) {
       <p className="muted">Sprache wählen · Choose your language</p>
       <div className="welcome-choices">
         {choices.map((c) => (
-          <button key={c.lang} className="btn secondary big" onClick={() => onPick(c.lang)}>
-            <span aria-hidden>{c.flag}</span> {c.label}
+          <button key={c.lang} className="lang-choice" onClick={() => onPick(c.lang)}>
+            <span className="lang-code" aria-hidden>
+              {c.code}
+            </span>
+            <span className="grow">{c.label}</span>
+            <Icon name="chevronRight" size={20} className="chev" />
           </button>
         ))}
       </div>

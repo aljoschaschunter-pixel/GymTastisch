@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Exercise } from '../db'
 import { useI18n, type Lang } from '../i18n'
 import { builtinImage } from '../seed'
+import { Icon } from './Icon'
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -16,8 +17,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ✕
+          <button className="icon-btn close-btn" onClick={onClose} aria-label="Close">
+            <Icon name="x" size={18} />
           </button>
         </div>
         <div className="sheet-body">{children}</div>

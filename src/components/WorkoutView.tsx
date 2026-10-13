@@ -8,9 +8,9 @@ import { exerciseName } from '../seed'
 import { judgeFirstSet, suggestedWeight, usesProgression, type Verdict } from '../progression'
 import { useSettings } from '../settings'
 import { ExercisePicker } from './ExercisePicker'
-import { PlansSection, startWorkout } from './Plans'
+import { Icon } from './Icon'
+import { StartScreen } from './Plans'
 import { useRest } from './RestTimer'
-import { WorkoutSummary } from './HistoryView'
 import { ExerciseThumb, fmt, Sheet, Stepper } from './ui'
 
 export function WorkoutView() {
@@ -68,13 +68,13 @@ export function WorkoutView() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <div>
-          <h1>{plan?.name ?? t('tabWorkout')}</h1>
+      <header className="page-head workout-head">
+        <div className="min0">
           <Elapsed since={workout.startedAt} />
+          <h1 className="clamp">{plan?.name ?? t('freeWorkout')}</h1>
         </div>
         <button className="btn primary small" onClick={finish}>
-          {t('finishWorkout')}
+          <Icon name="check" size={18} /> {t('finish')}
         </button>
       </header>
 
@@ -83,7 +83,7 @@ export function WorkoutView() {
       ))}
 
       <button className="btn secondary full add-ex" onClick={() => setPicking(true)}>
-        + {t('addExercise')}
+        <Icon name="plus" size={18} /> {t('addExercise')}
       </button>
       <button className="btn ghost full danger-text" onClick={discard}>
         {t('discardWorkout')}
@@ -98,33 +98,6 @@ export function WorkoutView() {
   )
 }
 
-function StartScreen() {
-  const { t } = useI18n()
-  const recent = useLiveQuery(
-    () => db.workouts.orderBy('startedAt').reverse().filter((w) => !!w.endedAt).limit(3).toArray(),
-    [],
-  )
-  return (
-    <div className="page">
-      <div className="hero compact">
-        <h1>{t('noActiveWorkout')}</h1>
-      </div>
-      <PlansSection />
-      <button className="btn secondary full" onClick={() => void startWorkout()}>
-        + {t('freeWorkout')}
-      </button>
-      {!!recent?.length && (
-        <section>
-          <h3 className="group-title">{t('recentWorkouts')}</h3>
-          {recent.map((w) => (
-            <WorkoutSummary key={w.id} workout={w} />
-          ))}
-        </section>
-      )}
-    </div>
-  )
-}
-
 function Elapsed({ since }: { since: number }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -133,8 +106,8 @@ function Elapsed({ since }: { since: number }) {
   }, [])
   const { t } = useI18n()
   return (
-    <span className="muted">
-      {Math.max(0, Math.floor((now - since) / 60000))} {t('minutes')}
+    <span className="eyebrow">
+      <Icon name="clock" size={14} /> {Math.max(0, Math.floor((now - since) / 60000))} {t('minutes')}
     </span>
   )
 }
@@ -205,21 +178,26 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
           </span>
         </button>
         <button className="icon-btn muted" onClick={remove} aria-label={t('removeFromWorkout')}>
-          ✕
+          <Icon name="x" size={20} />
         </button>
       </header>
 
       {progression && (
-        <p className="goal-line small">
-          🎯 {t('workingWeight')}: <strong>{exercise.workingWeight !== undefined ? `${fmt(exercise.workingWeight, lang)} kg` : '–'}</strong>
-          {' · '}
-          {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
-        </p>
+        <div className="meta-row">
+          <span className="meta-chip">
+            <Icon name="target" size={15} /> {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
+          </span>
+          <span className="meta-chip">
+            {t('workingWeight')}{' '}
+            <strong>{exercise.workingWeight !== undefined ? `${fmt(exercise.workingWeight, lang)} kg` : '–'}</strong>
+          </span>
+        </div>
       )}
 
-      <p className="muted small">
+      <p className="muted small last-time">
+        <Icon name="history" size={15} />
         {previous?.length
-          ? `${t('lastTime')}: ${previous.map((s) => `${fmt(s.weight, lang)}×${s.reps}`).join(' · ')}`
+          ? `${t('lastTime')}: ${previous.map((s) => `${fmt(s.weight, lang)} × ${s.reps}`).join(' · ')}`
           : t('firstTime')}
       </p>
 
@@ -229,16 +207,21 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
             <li key={s.id}>
               <button onClick={() => setEditing(s)}>
                 <span className="set-no">{i + 1}</span>
-                <span>
-                  {fmt(s.weight, lang)} kg × {s.reps}
+                <span className="grow">
+                  {fmt(s.weight, lang)} kg <span className="muted">×</span> {s.reps}
                 </span>
+                <Icon name="check" size={18} className="set-check" />
               </button>
             </li>
           ))}
         </ol>
       )}
 
-      {pr && <div className="pr-badge">🏆 {t('newPR')}</div>}
+      {pr && (
+        <div className="pr-badge">
+          <Icon name="trophy" size={18} /> {t('newPR')}
+        </div>
+      )}
 
       {suggestion && (
         <ProgressionPrompt
@@ -255,7 +238,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
         <Stepper label={t('reps')} value={reps} onChange={setReps} step={1} />
       </div>
       <button className="btn primary full" onClick={saveSet}>
-        ✓ {t('saveSet')} {sets.length + 1}
+        <Icon name="check" size={20} /> {t('saveSetN', { n: sets.length + 1 })}
       </button>
 
       {editing && <EditSetSheet set={editing} exercise={exercise} onClose={() => setEditing(undefined)} />}
@@ -298,7 +281,10 @@ function ProgressionPrompt({
   }
   return (
     <div className={`prog prog-${verdict}`}>
-      <p>{t(verdict === 'up' ? 'progUp' : 'progDown', { reps })}</p>
+      <p>
+        <Icon name={verdict === 'up' ? 'trendUp' : 'trendDown'} size={18} />
+        {t(verdict === 'up' ? 'progUp' : 'progDown', { reps })}
+      </p>
       <Stepper label={t('workingWeight')} value={value} onChange={setValue} step={settings.weightStep} />
       <div className="row">
         <button className="btn primary small grow" onClick={() => onDone(value)}>
