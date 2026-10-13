@@ -871,3 +871,37 @@ main.with-rest {
   border-radius: 12px;
   padding: 10px 12px;
 }
+
+/* First launch */
+.welcome {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.welcome-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+}
+
+.welcome p {
+  margin: 0;
+}
+
+.welcome-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+  margin: 20px 0 8px;
+}
+
+.welcome-choices .btn {
+  max-width: none;
+}
