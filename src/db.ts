@@ -50,6 +50,8 @@ export interface Workout {
   exerciseIds: string[]
   /** Training day this workout was started from. */
   planId?: string
+  /** Logged afterwards without sets, so it counts for the weekly goal and streak. */
+  logged?: boolean
   note?: string
 }
 
@@ -59,6 +61,8 @@ export interface Plan {
   name: string
   order: number
   exerciseIds: string[]
+  /** Weekdays this day is usually trained on, 0 = Monday. */
+  weekdays?: number[]
 }
 
 export const MAX_PLANS = 7

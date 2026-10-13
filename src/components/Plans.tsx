@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, MAX_PLANS, uid, type Plan, type Workout } from '../db'
 import { unlockAudio } from '../device'
-import { useI18n } from '../i18n'
+import { useI18n, type T } from '../i18n'
 import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { DAY, weekStart, weekStreak, workoutsPerWeek } from '../weeks'
@@ -43,9 +43,7 @@ export function StartScreen() {
   const lastDone = new Map<string, number>()
   for (const w of done) if (w.planId && !lastDone.has(w.planId)) lastDone.set(w.planId, w.startedAt)
 
-  // The day after the most recently trained one, wrapping around.
-  const lastPlanIdx = plans.findIndex((p) => p.id === done.find((w) => w.planId)?.planId)
-  const next = plans.length ? plans[(lastPlanIdx + 1) % plans.length] : undefined
+  const { next, eyebrow } = pickNext(plans, done, locale, t)
 
   const when = (p: Plan) => {
     const d = lastDone.get(p.id)
@@ -105,10 +103,10 @@ export function StartScreen() {
   return (
     <div className="page">
       {header}
-      <WeekCard workouts={done} />
+      <WeekCard workouts={done} plans={plans} />
       {next && (
         <section className="next-card">
-          <span className="eyebrow accent">{t('upNext')}</span>
+          <span className="eyebrow accent">{eyebrow}</span>
           <div className="next-title">
             <h2>{next.name}</h2>
             <button className="icon-btn" onClick={() => setEditing(next)} aria-label={t('editDay')}>
@@ -116,7 +114,7 @@ export function StartScreen() {
             </button>
           </div>
           <p className="muted small">
-            {t('nExercises', { n: next.exerciseIds.length })} · {when(next)}
+            {(next.exerciseIds.length === 1 ? t('oneExercise') : t('nExercises', { n: next.exerciseIds.length }))} · {when(next)}
           </p>
           {!!next.exerciseIds.length && (
             <div className="thumb-stack">
@@ -143,7 +141,10 @@ export function StartScreen() {
                   <Icon name="play" size={14} />
                 </span>
                 <span className="grow plan-text">
-                  <strong>{p.name}</strong>
+                  <strong>
+                    {p.name}
+                    {!!p.weekdays?.length && <span className="weekday-tag">{weekdayLabels(p.weekdays, lang)}</span>}
+                  </strong>
                   <span className="muted small clamp">
                     {p.exerciseIds.length
                       ? p.exerciseIds.map((id) => exerciseName(byId.get(id), t)).join(', ')
@@ -178,10 +179,11 @@ export function StartScreen() {
   )
 }
 
-/** Weekly goal ring, trained days of this week and the week streak. */
-export function WeekCard({ workouts }: { workouts: Workout[] }) {
+/** Weekly goal ring, trained days of this week and the week streak. With `plans`, past days can be logged. */
+export function WeekCard({ workouts, plans }: { workouts: Workout[]; plans?: Plan[] }) {
   const { t, lang } = useI18n()
   const { settings } = useSettings()
+  const [logDay, setLogDay] = useState<number>()
   const now = Date.now()
   const monday = weekStart(now)
   const perWeek = workoutsPerWeek(workouts)
@@ -189,13 +191,15 @@ export function WeekCard({ workouts }: { workouts: Workout[] }) {
   const streak = weekStreak(perWeek, now)
   const goal = settings.weeklyGoal
   const pct = Math.min(1, doneCount / goal)
-  const trainedDays = new Set(
-    workouts.filter((w) => w.startedAt >= monday).map((w) => (new Date(w.startedAt).getDay() + 6) % 7),
-  )
-  const todayIdx = (new Date(now).getDay() + 6) % 7
-  const dayNames = Array.from({ length: 7 }, (_, i) =>
-    new Date(monday + (i + 0.5) * DAY).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', { weekday: 'narrow' }),
-  )
+  const weekdayOf = (ts: number) => (new Date(ts).getDay() + 6) % 7
+  const thisWeek = workouts.filter((w) => w.startedAt >= monday)
+  const trainedDays = new Set(thisWeek.map((w) => weekdayOf(w.startedAt)))
+  const planned = new Set(plans?.flatMap((p) => p.weekdays ?? []))
+  const todayIdx = weekdayOf(now)
+  const locale = lang === 'de' ? 'de-DE' : 'en-GB'
+  const dayDate = (i: number) => new Date(monday + i * DAY + DAY / 2)
+  const dayNames = Array.from({ length: 7 }, (_, i) => dayDate(i).toLocaleDateString(locale, { weekday: 'narrow' }))
+  const canLog = !!plans && Array.from({ length: todayIdx }, (_, i) => i).some((i) => !trainedDays.has(i))
   const R = 26
   const C = 2 * Math.PI * R
 
@@ -228,13 +232,109 @@ export function WeekCard({ workouts }: { workouts: Workout[] }) {
         </div>
       </div>
       <div className="week-days">
-        {dayNames.map((d, i) => (
-          <span key={i} className={`day ${trainedDays.has(i) ? 'on' : ''} ${i === todayIdx ? 'today' : ''}`}>
-            {trainedDays.has(i) ? <Icon name="check" size={14} /> : d}
-          </span>
-        ))}
+        {dayNames.map((d, i) => {
+          const cls = `day ${trainedDays.has(i) ? 'on' : ''} ${i === todayIdx ? 'today' : ''} ${planned.has(i) ? 'planned' : ''}`
+          const content = trainedDays.has(i) ? <Icon name="check" size={14} /> : d
+          return plans && i <= todayIdx ? (
+            <button
+              key={i}
+              className={cls}
+              onClick={() => setLogDay(i)}
+              aria-label={dayDate(i).toLocaleDateString(locale)}
+            >
+              {content}
+            </button>
+          ) : (
+            <span key={i} className={cls}>
+              {content}
+            </span>
+          )
+        })}
       </div>
+      {canLog && <p className="muted small week-hint">{t('weekTapHint')}</p>}
+      {logDay !== undefined && plans && (
+        <LogPastSheet
+          date={dayDate(logDay)}
+          plans={plans}
+          existing={thisWeek.filter((w) => weekdayOf(w.startedAt) === logDay)}
+          onClose={() => setLogDay(undefined)}
+        />
+      )}
     </section>
+  )
+}
+
+/** Log a workout done without the app, or remove such an entry. */
+function LogPastSheet({
+  date,
+  plans,
+  existing,
+  onClose,
+}: {
+  date: Date
+  plans: Plan[]
+  existing: Workout[]
+  onClose: () => void
+}) {
+  const { t, lang } = useI18n()
+  const label = date.toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+  const weekday = (date.getDay() + 6) % 7
+  const log = async (plan?: Plan) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 18).getTime()
+    await db.workouts.add({
+      id: uid(),
+      startedAt: Math.min(start, Date.now() - 60_000),
+      endedAt: Math.min(start + 3_600_000, Date.now()),
+      exerciseIds: plan ? [...plan.exerciseIds] : [],
+      planId: plan?.id,
+      logged: true,
+    })
+    onClose()
+  }
+  const removable = existing.filter((w) => w.logged)
+  // Days planned for this weekday first.
+  const ordered = [...plans].sort(
+    (a, b) => Number(!!b.weekdays?.includes(weekday)) - Number(!!a.weekdays?.includes(weekday)),
+  )
+
+  return (
+    <Sheet title={t('logPastTitle', { day: label })} onClose={onClose}>
+      <p className="muted small">{t('logPastHint')}</p>
+      <ul className="list">
+        {ordered.map((p) => (
+          <li key={p.id}>
+            <button className="list-item" onClick={() => void log(p)}>
+              <span className="play-dot">
+                <Icon name="check" size={16} />
+              </span>
+              <span className="grow">{p.name}</span>
+            </button>
+          </li>
+        ))}
+        <li>
+          <button className="list-item" onClick={() => void log()}>
+            <span className="play-dot ghost">
+              <Icon name="check" size={16} />
+            </span>
+            <span className="grow">{t('withoutDay')}</span>
+          </button>
+        </li>
+      </ul>
+      {removable.map((w) => (
+        <button
+          key={w.id}
+          className="btn ghost full danger-text"
+          onClick={() => db.workouts.delete(w.id).then(onClose)}
+        >
+          <Icon name="trash" size={18} /> {t('removeLogged')}
+          {w.planId ? ` · ${plans.find((p) => p.id === w.planId)?.name ?? ''}` : ''}
+        </button>
+      ))}
+    </Sheet>
   )
 }
 
@@ -261,6 +361,39 @@ function RecentWorkouts() {
   )
 }
 
+const weekdayLabels = (days: number[], lang: string) =>
+  days
+    .map((i) =>
+      new Date(2024, 0, 1 + i)
+        .toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', { weekday: 'short' })
+        .replace('.', ''),
+    )
+    .join(' · ')
+
+/**
+ * Which training day to suggest. With weekdays set: today's day if not trained yet,
+ * otherwise the next scheduled one. Without: the day after the last one trained.
+ */
+function pickNext(plans: Plan[], done: Workout[], locale: string, t: T) {
+  const today = new Date()
+  const todayIdx = (today.getDay() + 6) % 7
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const trainedToday = done.some((w) => w.startedAt >= startOfToday)
+  if (plans.some((p) => p.weekdays?.length)) {
+    const todayPlan = plans.find((p) => p.weekdays?.includes(todayIdx))
+    if (todayPlan && !trainedToday) return { next: todayPlan, eyebrow: t('todayPlan') }
+    for (let d = 1; d <= 7; d++) {
+      const p = plans.find((x) => x.weekdays?.includes((todayIdx + d) % 7))
+      if (p) {
+        const day = new Date(startOfToday + d * DAY + DAY / 2).toLocaleDateString(locale, { weekday: 'long' })
+        return { next: p, eyebrow: todayPlan ? `${t('upNext')} · ${day}` : t('restDay', { day }) }
+      }
+    }
+  }
+  const lastPlanIdx = plans.findIndex((p) => p.id === done.find((w) => w.planId)?.planId)
+  return { next: plans.length ? plans[(lastPlanIdx + 1) % plans.length] : undefined, eyebrow: t('upNext') }
+}
+
 function relativeDay(ts: number, locale: string, today: string) {
   const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   const days = Math.round((startOf(new Date()) - startOf(new Date(ts))) / 86_400_000)
@@ -273,9 +406,10 @@ function relativeDay(ts: number, locale: string, today: string) {
 }
 
 function PlanEditor({ plan, count, onClose }: { plan?: Plan; count: number; onClose: () => void }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [name, setName] = useState(plan?.name ?? '')
   const [ids, setIds] = useState<string[]>(plan?.exerciseIds ?? [])
+  const [weekdays, setWeekdays] = useState<number[]>(plan?.weekdays ?? [])
   const [picking, setPicking] = useState(false)
   const exercises = useLiveQuery(() => db.exercises.bulkGet(ids), [ids])
 
@@ -289,6 +423,7 @@ function PlanEditor({ plan, count, onClose }: { plan?: Plan; count: number; onCl
     const data = {
       name: name.trim() || t('dayN', { n: count + (plan ? 0 : 1) }),
       exerciseIds: ids,
+      weekdays: [...weekdays].sort(),
     }
     if (plan) await db.plans.update(plan.id, data)
     else await db.plans.add({ id: uid(), order: Date.now(), ...data })
@@ -308,6 +443,25 @@ function PlanEditor({ plan, count, onClose }: { plan?: Plan; count: number; onCl
           {t('dayName')}
           <input value={name} placeholder={t('dayNamePlaceholder')} onChange={(e) => setName(e.target.value)} />
         </label>
+        <div className="field">
+          <span>{t('weekdays')}</span>
+          <div className="weekday-picker">
+            {Array.from({ length: 7 }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={weekdays.includes(i) ? 'on' : ''}
+                aria-pressed={weekdays.includes(i)}
+                onClick={() => setWeekdays(weekdays.includes(i) ? weekdays.filter((x) => x !== i) : [...weekdays, i])}
+              >
+                {new Date(2024, 0, 1 + i)
+                  .toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', { weekday: 'short' })
+                  .replace('.', '')}
+              </button>
+            ))}
+          </div>
+          <small className="muted">{t('weekdaysHint')}</small>
+        </div>
         <div className="field">
           <span>{t('tabExercises')}</span>
           {!ids.length && <p className="muted small">{t('noExercisesYet')}</p>}
