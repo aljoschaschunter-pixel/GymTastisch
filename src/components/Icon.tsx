@@ -26,6 +26,7 @@ const PATHS = {
   calendar: 'M4.5 6h15v14h-15zM4.5 10h15M8.5 3.5v4M15.5 3.5v4',
   trendUp: 'M4 17l6-6 4 4 6-7M15 8h5v5',
   trendDown: 'M4 7l6 6 4-4 6 7M15 16h5v-5',
+  chart: 'M5 20v-8M12 20V5M19 20v-5M3 20.5h18',
   search: 'M10.5 17.5a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15.5 15.5 20 20',
 } as const
 

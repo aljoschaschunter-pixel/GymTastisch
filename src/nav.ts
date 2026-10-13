@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 
-export type Tab = 'workout' | 'exercises' | 'history' | 'settings'
+export type Tab = 'workout' | 'exercises' | 'stats' | 'history' | 'settings'
 
 export const NavContext = createContext<{
   tab: Tab

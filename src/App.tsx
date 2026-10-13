@@ -4,6 +4,7 @@ import { HistoryView } from './components/HistoryView'
 import { Icon, type IconName } from './components/Icon'
 import { loadRest, RestContext, RestTimerBar, saveRest, type RestState } from './components/RestTimer'
 import { SettingsView } from './components/SettingsView'
+import { StatsView } from './components/StatsView'
 import { WorkoutView } from './components/WorkoutView'
 import { requestPersistence } from './db'
 import { detectLang, I18nContext, makeT, type Key, type Lang } from './i18n'
@@ -14,6 +15,7 @@ import { loadSettings, saveSettings, SettingsContext, type Settings } from './se
 const TABS: { id: Tab; icon: IconName; label: Key }[] = [
   { id: 'workout', icon: 'dumbbell', label: 'tabWorkout' },
   { id: 'exercises', icon: 'list', label: 'tabExercises' },
+  { id: 'stats', icon: 'chart', label: 'tabStats' },
   { id: 'history', icon: 'calendar', label: 'tabHistory' },
   { id: 'settings', icon: 'settings', label: 'tabSettings' },
 ]
@@ -97,6 +99,7 @@ export default function App() {
                   ) : (
                     <>
                       {tab === 'exercises' && <ExercisesView />}
+                      {tab === 'stats' && <StatsView />}
                       {tab === 'history' && <HistoryView />}
                       {tab === 'settings' && <SettingsView />}
                     </>

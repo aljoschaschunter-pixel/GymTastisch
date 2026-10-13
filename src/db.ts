@@ -68,11 +68,20 @@ export interface WorkoutSet {
   createdAt: number
 }
 
+/** Optional morning body weight, one entry per day. */
+export interface BodyWeight {
+  /** Local calendar day, YYYY-MM-DD. */
+  date: string
+  weight: number
+  createdAt: number
+}
+
 export const db = new Dexie('gymtastisch') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>
   workouts: EntityTable<Workout, 'id'>
   sets: EntityTable<WorkoutSet, 'id'>
   plans: EntityTable<Plan, 'id'>
+  bodyweights: EntityTable<BodyWeight, 'date'>
 }
 
 db.version(1).stores({
@@ -84,6 +93,14 @@ db.version(1).stores({
 db.version(2).stores({
   plans: 'id, order',
 })
+
+db.version(3).stores({
+  bodyweights: 'date',
+})
+
+/** Local calendar day as YYYY-MM-DD. */
+export const dayKey = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export const uid = () =>
   typeof crypto.randomUUID === 'function'

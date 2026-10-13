@@ -4,8 +4,18 @@ interface Point {
   label: string
 }
 
-/** Minimal line chart: one point per session, evenly spaced. */
-export function Chart({ points, format }: { points: Point[]; format: (v: number) => string }) {
+/** Minimal line chart. Points are evenly spaced unless `timeScale` places them by their x value. */
+export function Chart({
+  points,
+  format,
+  timeScale = false,
+  highlightMax = true,
+}: {
+  points: Point[]
+  format: (v: number) => string
+  timeScale?: boolean
+  highlightMax?: boolean
+}) {
   const W = 340
   const H = 170
   const pad = { l: 40, r: 12, t: 14, b: 26 }
@@ -22,13 +32,18 @@ export function Chart({ points, format }: { points: Point[]; format: (v: number)
   min = Math.max(0, min - span * 0.1)
   max = max + span * 0.1
 
+  const x0 = points[0].x
+  const xSpan = points[points.length - 1].x - x0
   const x = (i: number) =>
-    points.length === 1 ? (pad.l + W - pad.r) / 2 : pad.l + (i * (W - pad.l - pad.r)) / (points.length - 1)
+    points.length === 1
+      ? (pad.l + W - pad.r) / 2
+      : pad.l +
+        ((timeScale && xSpan > 0 ? (points[i].x - x0) / xSpan : i / (points.length - 1)) * (W - pad.l - pad.r))
   const y = (v: number) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b)
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.y).toFixed(1)}`).join(' ')
   const area = `${path} L${x(points.length - 1).toFixed(1)},${H - pad.b} L${x(0).toFixed(1)},${H - pad.b} Z`
   const ticks = [min, (min + max) / 2, max]
-  const bestIdx = ys.indexOf(Math.max(...ys))
+  const bestIdx = highlightMax ? ys.indexOf(Math.max(...ys)) : -1
 
   return (
     <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img">
@@ -49,7 +64,7 @@ export function Chart({ points, format }: { points: Point[]; format: (v: number)
       {points.length > 1 && <path d={area} fill="url(#chart-fill)" />}
       <path d={path} className="chart-line" />
       {points.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.y)} r={i === bestIdx ? 5 : 3.5} className={i === bestIdx ? 'chart-dot best' : 'chart-dot'} />
+        <circle key={i} cx={x(i)} cy={y(p.y)} r={i === bestIdx ? 5 : points.length > 40 ? 2 : 3.5} className={i === bestIdx ? 'chart-dot best' : 'chart-dot'} />
       ))}
       <text x={x(0)} y={H - 6} textAnchor={points.length === 1 ? 'middle' : 'start'} className="chart-label">
         {points[0].label}
