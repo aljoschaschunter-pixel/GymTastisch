@@ -22,6 +22,12 @@ export function WorkoutView() {
   const plan = useLiveQuery(async () => (workout?.planId ? db.plans.get(workout.planId) : undefined), [workout?.planId])
   const [picking, setPicking] = useState(false)
   const [summaryId, setSummaryId] = useState<string>()
+  const [focusId, setFocusId] = useState<string>()
+  const doneIds = useLiveQuery(
+    async () =>
+      workout ? new Set((await db.sets.where('workoutId').equals(workout.id).toArray()).map((s) => s.exerciseId)) : undefined,
+    [workout?.id],
+  )
 
   useEffect(() => {
     setKeepAwake(!!workout && settings.keepAwake)
@@ -53,7 +59,15 @@ export function WorkoutView() {
     if (!workout.exerciseIds.includes(id)) {
       await db.workouts.update(workout.id, { exerciseIds: [...workout.exerciseIds, id] })
     }
-    setTimeout(() => document.getElementById(`ex-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  const open = (id?: string) => {
+    setFocusId(id)
+    window.scrollTo(0, 0)
+  }
+
+  if (focusId && workout.exerciseIds.includes(focusId)) {
+    return <ExerciseFocus key={focusId} workout={workout} exerciseId={focusId} onBack={() => open(undefined)} />
   }
 
   const finish = async () => {
@@ -90,9 +104,28 @@ export function WorkoutView() {
         </button>
       </header>
 
-      {workout.exerciseIds.map((id) => (
-        <ExerciseCard key={id} workout={workout} exerciseId={id} />
-      ))}
+      {workout.exerciseIds.length > 0 && (
+        <>
+          <p className="muted small overview-hint">{t('overviewHint')}</p>
+          <ul className="list">
+            {workout.exerciseIds.map((id) => (
+              <ExerciseRow key={id} workout={workout} exerciseId={id} onOpen={() => open(id)} />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {workout.exerciseIds.length > 0 && workout.exerciseIds.every((id) => doneIds?.has(id)) && (
+        <section className="all-done">
+          <span className="done-dot">
+            <Icon name="check" size={16} />
+          </span>
+          <strong className="grow">{t('allDone')}</strong>
+          <button className="btn primary small" onClick={finish}>
+            {t('finish')}
+          </button>
+        </section>
+      )}
 
       <button className="btn secondary full add-ex" onClick={() => setPicking(true)}>
         <Icon name="plus" size={18} /> {t('addExercise')}
@@ -124,7 +157,46 @@ function Elapsed({ since }: { since: number }) {
   )
 }
 
-function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: string }) {
+/** One line per exercise in the workout overview; tap to open it. */
+function ExerciseRow({ workout, exerciseId, onOpen }: { workout: Workout; exerciseId: string; onOpen: () => void }) {
+  const { t, lang } = useI18n()
+  const exercise = useLiveQuery(() => db.exercises.get(exerciseId), [exerciseId])
+  const sets = useLiveQuery(
+    () => db.sets.where({ workoutId: workout.id, exerciseId }).sortBy('createdAt'),
+    [workout.id, exerciseId],
+  )
+  if (!exercise || !sets) return null
+  const bw = isBodyweight(exercise)
+  const weight = sets.at(-1)?.weight ?? exercise.workingWeight
+  const weightText =
+    weight === undefined ? undefined : weight > 0 ? `${fmt(weight, lang)} kg` : bw ? t('bodyweightShort') : '0 kg'
+  const done = sets.length > 0
+
+  return (
+    <li>
+      <button className={`list-item ex-row ${done ? 'done' : ''}`} onClick={onOpen}>
+        <ExerciseThumb exercise={exercise} />
+        <span className="grow min0">
+          <span className="clamp block ex-row-name">{exerciseName(exercise, t)}</span>
+          <span className="muted small">
+            {done ? (sets.length === 1 ? t('oneSet') : t('nSets', { n: sets.length })) : t('notStarted')}
+            {weightText && ` · ${weightText}`}
+          </span>
+        </span>
+        {done ? (
+          <span className="done-dot">
+            <Icon name="check" size={16} />
+          </span>
+        ) : (
+          <Icon name="chevronRight" size={18} className="chev" />
+        )}
+      </button>
+    </li>
+  )
+}
+
+/** Focused page for one exercise: weight is set once, then each set only asks for reps. */
+function ExerciseFocus({ workout, exerciseId, onBack }: { workout: Workout; exerciseId: string; onBack: () => void }) {
   const { t, lang } = useI18n()
   const { settings } = useSettings()
   const { openExercise } = useNav()
@@ -138,24 +210,32 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
 
   const [weight, setWeight] = useState<number>()
   const [reps, setReps] = useState<number>()
+  const [editingWeight, setEditingWeight] = useState(false)
   const [editing, setEditing] = useState<WorkoutSet>()
   const [pr, setPr] = useState(false)
   const [beat, setBeat] = useState<string>()
   const [suggestion, setSuggestion] = useState<{ verdict: Verdict; reps: number; weight: number; next: number }>()
 
-  // Prefill with the last set of today; for the first set use the working weight.
+  // Weight: today's last set, else the saved working weight, else last time.
   useEffect(() => {
     if (!sets || !previous || !exercise || weight !== undefined) return
-    const last = sets.at(-1)
-    setWeight(last?.weight ?? exercise.workingWeight ?? previous[0]?.weight ?? (isBodyweight(exercise) ? 0 : 20))
-    setReps(last?.reps ?? previous[0]?.reps ?? settings.repMin)
-  }, [sets, previous, exercise, weight, settings.repMin])
+    setWeight(sets.at(-1)?.weight ?? exercise.workingWeight ?? previous[0]?.weight ?? (isBodyweight(exercise) ? 0 : 20))
+  }, [sets, previous, exercise, weight])
 
-  if (!exercise || !sets || weight === undefined || reps === undefined) return null
+  // Reps: what you did in the same set last time, else today's last set, else the bottom of the range.
+  const setIndex = sets?.length ?? 0
+  useEffect(() => {
+    if (!sets || !previous) return
+    setReps(previous[setIndex]?.reps ?? sets.at(-1)?.reps ?? previous.at(-1)?.reps ?? settings.repMin)
+  }, [setIndex, sets, previous, settings.repMin])
+
+  if (!exercise || !sets || !previous || weight === undefined || reps === undefined) return null
   const progression = usesProgression(exercise)
   const step = stepFor(exercise, settings.weightStep)
   const bw = isBodyweight(exercise)
   const label = (w: number, r: number) => setText(w, r, lang, bw ? t('bodyweightShort') : '0 kg')
+  // First time ever: ask for the weight once, nothing else.
+  const needsWeight = progression && !bw && exercise.workingWeight === undefined && !sets.length && !previous.length
 
   const saveSet = async () => {
     unlockAudio()
@@ -163,6 +243,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
     const isFirst = sets.length === 0
     await db.sets.add({ id: uid(), workoutId: workout.id, exerciseId, weight, reps, createdAt: Date.now() })
     rest.start(exercise.restSeconds ?? settings.defaultRest)
+    setEditingWeight(false)
     if (isFirst && progression) {
       // Only the first set decides the weight for next time.
       const verdict = judgeFirstSet(reps, settings.repMin, settings.repMax)
@@ -174,7 +255,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
       setTimeout(() => setPr(false), 4000)
     } else {
       // Small wins count: compare with the same set last time.
-      const prev = previous?.[sets.length]
+      const prev = previous[sets.length]
       const msg = !prev
         ? undefined
         : weight > prev.weight
@@ -195,49 +276,87 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
       await db.sets.where({ workoutId: workout.id, exerciseId }).delete()
       await db.workouts.update(workout.id, { exerciseIds: workout.exerciseIds.filter((x) => x !== exerciseId) })
     })
+    onBack()
   }
 
   return (
-    <article className="card" id={`ex-${exerciseId}`}>
-      <header className="card-head">
-        <button className="card-title" onClick={() => openExercise(exerciseId)}>
-          <ExerciseThumb exercise={exercise} className="thumb card-thumb" />
-          <span>
-            <strong>{exerciseName(exercise, t)}</strong>
-            {exercise.notes && <small className="muted block">{exercise.notes}</small>}
-          </span>
+    <div className="page focus">
+      <header className="page-head">
+        <button className="btn ghost small back" onClick={onBack}>
+          <Icon name="chevronLeft" size={20} /> {t('workoutOverview')}
         </button>
-        <button className="icon-btn muted" onClick={remove} aria-label={t('removeFromWorkout')}>
-          <Icon name="x" size={20} />
+        <button className="icon-btn muted" onClick={() => openExercise(exerciseId)} aria-label={t('progress')}>
+          <Icon name="chart" size={20} />
         </button>
       </header>
 
-      {progression && (
-        <div className="meta-row">
-          <span className="meta-chip">
-            <Icon name="target" size={15} /> {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
-          </span>
-          <span className="meta-chip">
-            {t('workingWeight')}{' '}
-            <strong>
-              {exercise.workingWeight
-                ? `${fmt(exercise.workingWeight, lang)} kg`
-                : bw
-                  ? t('bodyweightShort')
-                  : exercise.workingWeight === 0
-                    ? '0 kg'
-                    : '–'}
-            </strong>
-          </span>
+      <div className="focus-hero">
+        <ExerciseThumb exercise={exercise} className="focus-img" />
+        <div className="min0">
+          <h1 className="focus-title">{exerciseName(exercise, t)}</h1>
+          {progression && (
+            <span className="meta-chip goal">
+              <Icon name="target" size={15} /> {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
+            </span>
+          )}
         </div>
-      )}
+      </div>
+      {exercise.notes && <p className="muted small">{exercise.notes}</p>}
 
-      <p className="muted small last-time">
-        <Icon name="history" size={15} />
-        {previous?.length
-          ? `${t('lastTime')}: ${previous.map((s) => label(s.weight, s.reps)).join(' · ')}`
-          : t('firstTime')}
-      </p>
+      {needsWeight ? (
+        <section className="card focus-card">
+          <h2 className="focus-q">{t('startWeightTitle')}</h2>
+          <p className="muted small">{t('startWeightHint')}</p>
+          <Stepper label={`${t('weight')} (kg)`} value={weight} onChange={setWeight} step={step} />
+          <button
+            className="btn primary full big"
+            onClick={() => db.exercises.update(exerciseId, { workingWeight: weight })}
+          >
+            {t('continue')} <Icon name="chevronRight" size={18} />
+          </button>
+        </section>
+      ) : (
+        <section className="card focus-card">
+          <div className="set-head">
+            <h2 className="focus-q">{t('setN', { n: sets.length + 1 })}</h2>
+            <button className="weight-pill" onClick={() => setEditingWeight(!editingWeight)}>
+              {weight > 0 ? `${fmt(weight, lang)} kg` : bw ? t('bodyweightShort') : '0 kg'}
+              <span className="weight-pill-action">
+                <Icon name="pencil" size={13} /> {t('change')}
+              </span>
+            </button>
+          </div>
+          {editingWeight && (
+            <Stepper label={`${t(bw ? 'addedWeight' : 'weight')} (kg)`} value={weight} onChange={setWeight} step={step} />
+          )}
+          <Stepper label={t('repsQuestion')} value={reps} onChange={setReps} step={1} />
+          <button className="btn primary full big" onClick={saveSet}>
+            <Icon name="check" size={20} /> {t('saveSetN', { n: sets.length + 1 })}
+          </button>
+
+          {pr && (
+            <div className="pr-badge">
+              <Icon name="trophy" size={18} /> {t('newPR')}
+            </div>
+          )}
+          {beat && (
+            <div className="beat-badge">
+              <Icon name="trendUp" size={18} /> {beat}
+            </div>
+          )}
+          {suggestion && (
+            <ProgressionPrompt
+              {...suggestion}
+              step={step}
+              bodyweight={bw}
+              onDone={async (next) => {
+                if (next !== undefined) await db.exercises.update(exerciseId, { workingWeight: next })
+                setSuggestion(undefined)
+              }}
+            />
+          )}
+        </section>
+      )}
 
       {!!sets.length && (
         <ol className="sets">
@@ -245,9 +364,7 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
             <li key={s.id}>
               <button onClick={() => setEditing(s)}>
                 <span className="set-no">{i + 1}</span>
-                <span className="grow">
-                  {label(s.weight, s.reps)}
-                </span>
+                <span className="grow">{label(s.weight, s.reps)}</span>
                 <Icon name="check" size={18} className="set-check" />
               </button>
             </li>
@@ -255,39 +372,24 @@ function ExerciseCard({ workout, exerciseId }: { workout: Workout; exerciseId: s
         </ol>
       )}
 
-      {pr && (
-        <div className="pr-badge">
-          <Icon name="trophy" size={18} /> {t('newPR')}
-        </div>
-      )}
-      {beat && (
-        <div className="beat-badge">
-          <Icon name="trendUp" size={18} /> {beat}
-        </div>
-      )}
+      <p className="muted small last-time">
+        <Icon name="history" size={15} />
+        {previous.length
+          ? `${t('lastTime')}: ${previous.map((s) => label(s.weight, s.reps)).join(' · ')}`
+          : t('firstTime')}
+      </p>
 
-      {suggestion && (
-        <ProgressionPrompt
-          {...suggestion}
-          step={step}
-          bodyweight={bw}
-          onDone={async (next) => {
-            if (next !== undefined) await db.exercises.update(exerciseId, { workingWeight: next })
-            setSuggestion(undefined)
-          }}
-        />
+      {!!sets.length && (
+        <button className="btn secondary full" onClick={onBack}>
+          <Icon name="check" size={18} /> {t('exerciseDone')}
+        </button>
       )}
-
-      <div className="entry">
-        <Stepper label={`${t(bw ? 'addedWeight' : 'weight')} (kg)`} value={weight} onChange={setWeight} step={step} />
-        <Stepper label={t('reps')} value={reps} onChange={setReps} step={1} />
-      </div>
-      <button className="btn primary full" onClick={saveSet}>
-        <Icon name="check" size={20} /> {t('saveSetN', { n: sets.length + 1 })}
+      <button className="btn ghost full danger-text" onClick={remove}>
+        {t('removeFromWorkout')}
       </button>
 
       {editing && <EditSetSheet set={editing} exercise={exercise} onClose={() => setEditing(undefined)} />}
-    </article>
+    </div>
   )
 }
 

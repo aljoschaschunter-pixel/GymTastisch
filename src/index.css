@@ -1955,3 +1955,116 @@ select {
     animation: none;
   }
 }
+
+/* ---------- Workout overview & focus ---------- */
+.overview-hint {
+  margin: 0 4px;
+}
+
+.ex-row-name {
+  font-weight: 600;
+}
+
+.ex-row.done .ex-row-name {
+  color: var(--muted);
+}
+
+.done-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.focus-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.focus-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.focus-title {
+  font-size: 26px;
+  margin-bottom: 8px;
+}
+
+.meta-chip.goal {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.focus-card {
+  gap: 14px;
+}
+
+.focus-q {
+  margin: 0;
+  font-size: 24px;
+}
+
+.set-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weight-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.weight-pill-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--accent-ink);
+}
+
+.focus .stepper-row {
+  height: 64px;
+}
+
+.focus .stepper-row input {
+  font-size: 30px;
+}
+
+.focus .stepper-row button {
+  width: 64px;
+  font-size: 28px;
+}
+
+.all-done {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  animation: pop 0.3s ease-out;
+}
