@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { db, estimate1RM, MUSCLE_GROUPS, uid, type Exercise, type MuscleGroup, type WorkoutSet } from '../db'
 import { useI18n, type Key } from '../i18n'
 import { useNav } from '../nav'
-import { builtinImages, exerciseName } from '../seed'
+import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
 import { Chart } from './Chart'
 import { groupByMuscle, useExerciseList } from './ExercisePicker'
@@ -233,14 +233,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
       </header>
       <h1>{exerciseName(exercise, t)}</h1>
       <p className="muted small">{t(`group_${exercise.group}` as Key)}</p>
-      {exercise.photo && <Photo blob={exercise.photo} className="photo-large" />}
-      {builtinImages(exercise).length > 0 && (
-        <div className="photo-pair">
-          {builtinImages(exercise).map((src) => (
-            <img key={src} src={src} alt="" />
-          ))}
-        </div>
-      )}
+      {(exercise.photo || exercise.builtin) && <ExerciseThumb exercise={exercise} className="photo-large" />}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
 
       <h2>{t('progress')}</h2>

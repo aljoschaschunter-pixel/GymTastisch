@@ -2,7 +2,7 @@
 
 A small workout tracker for the iPhone, built as a web app (PWA), so it needs no App Store.
 
-- Exercise list with ~40 common exercises, your own exercises, photos and notes
+- Exercise list with ~40 illustrated exercises, your own exercises, photos and notes
 - Log sets as weight × reps, prefilled from last time
 - Rest timer starts automatically after each set, keeps the screen on and beeps over your music
 - Progress per exercise: estimated 1RM, top weight, volume and new-record badges
@@ -32,4 +32,4 @@ In the repo settings, **Pages → Build and deployment → Source** must be set 
 
 ## Credits
 
-Exercise photos are from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public domain, Unlicense).
+Exercise illustrations were generated with ChatGPT for this app.
