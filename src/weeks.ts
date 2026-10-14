@@ -13,11 +13,16 @@ export function weekStart(ts: number) {
 /** Previous Monday, robust against daylight saving changes. */
 export const prevWeek = (monday: number) => weekStart(monday - 3 * DAY)
 
-/** Finished workouts per week (keyed by Monday 00:00). */
+/** Days with a finished workout per week (keyed by Monday 00:00); a day counts once. */
 export function workoutsPerWeek(workouts: Workout[]) {
-  const map = new Map<number, number>()
-  for (const w of workouts) if (w.endedAt) map.set(weekStart(w.startedAt), (map.get(weekStart(w.startedAt)) ?? 0) + 1)
-  return map
+  const days = new Map<number, Set<number>>()
+  for (const w of workouts) {
+    if (!w.endedAt) continue
+    const day = new Date(w.startedAt).setHours(0, 0, 0, 0)
+    const week = weekStart(w.startedAt)
+    days.set(week, (days.get(week) ?? new Set()).add(day))
+  }
+  return new Map([...days].map(([week, set]) => [week, set.size]))
 }
 
 /** Consecutive weeks with at least one workout; the current week counts once it has one. */

@@ -106,9 +106,38 @@ db.version(3).stores({
   bodyweights: 'date',
 })
 
+// One entry per day: drop duplicate entries that were logged afterwards.
+db.version(4)
+  .stores({})
+  .upgrade(async (tx) => {
+    const workouts = await tx.table<Workout, string>('workouts').toArray()
+    await tx.table('workouts').bulkDelete(redundantLogged(workouts))
+  })
+
 /** Local calendar day as YYYY-MM-DD. */
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/**
+ * Ids of entries logged afterwards that duplicate another workout on the same day.
+ * A finished workout tracked in the app wins; otherwise one logged entry is kept,
+ * preferring one with a training day.
+ */
+export function redundantLogged(workouts: Workout[]) {
+  const byDay = new Map<string, Workout[]>()
+  for (const w of workouts) {
+    const key = dayKey(new Date(w.startedAt))
+    byDay.set(key, [...(byDay.get(key) ?? []), w])
+  }
+  const ids: string[] = []
+  for (const day of byDay.values()) {
+    const logged = day.filter((w) => w.logged)
+    const tracked = day.some((w) => !w.logged && w.endedAt)
+    const keep = tracked ? undefined : (logged.find((w) => w.planId) ?? logged[0])
+    for (const w of logged) if (w !== keep) ids.push(w.id)
+  }
+  return ids
+}
 
 export const uid = () =>
   typeof crypto.randomUUID === 'function'
