@@ -1766,6 +1766,43 @@ select {
   grid-template-columns: 128px 1fr 34px;
 }
 
+.mm-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mm-row {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.mm-row:disabled {
+  opacity: 1;
+}
+
+.mm-row .hbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mm-head {
+  font-size: 13px;
+  padding-left: 10px;
+}
+
+.mm-head .hbar-label {
+  white-space: normal;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
 .mm-legend {
   display: flex;
   justify-content: center;
