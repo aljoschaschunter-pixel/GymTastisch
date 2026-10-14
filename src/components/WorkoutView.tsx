@@ -12,6 +12,7 @@ import { Icon } from './Icon'
 import { StartScreen } from './Plans'
 import { WorkoutComplete } from './Summary'
 import { useRest } from './RestTimer'
+import { TipsChip } from './Tips'
 import { ExerciseThumb, fmt, setText, Sheet, Stepper } from './ui'
 
 export function WorkoutView() {
@@ -294,11 +295,14 @@ function ExerciseFocus({ workout, exerciseId, onBack }: { workout: Workout; exer
         <ExerciseThumb exercise={exercise} className="focus-img" />
         <div className="min0">
           <h1 className="focus-title">{exerciseName(exercise, t)}</h1>
-          {progression && (
-            <span className="meta-chip goal">
-              <Icon name="target" size={15} /> {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
-            </span>
-          )}
+          <div className="meta-row">
+            {progression && (
+              <span className="meta-chip goal">
+                <Icon name="target" size={15} /> {t('goal')} {settings.repMin}–{settings.repMax} {t('reps')}
+              </span>
+            )}
+            <TipsChip exercise={exercise} />
+          </div>
         </div>
       </div>
       {exercise.notes && <p className="muted small">{exercise.notes}</p>}
