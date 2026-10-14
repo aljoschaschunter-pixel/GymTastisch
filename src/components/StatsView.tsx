@@ -1,13 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { dayKey, db, estimate1RM, MUSCLE_GROUPS, type BodyWeight, type MuscleGroup } from '../db'
+import { dayKey, db, estimate1RM, type BodyWeight } from '../db'
 import { useI18n, type Key, type Lang } from '../i18n'
 import { useNav } from '../nav'
+import { exerciseMuscles, MUSCLES, type Muscle } from '../muscles'
 import { exerciseName } from '../seed'
 import { DAY, prevWeek, weekStart, weekStreak } from '../weeks'
 import { Chart } from './Chart'
 import { Icon } from './Icon'
-import { MAP_GROUPS, MuscleMap, type Level, type MapGroup } from './MuscleMap'
+import { MuscleMap, type Level } from './MuscleMap'
 import { ExerciseThumb, fmt, Stepper } from './ui'
 
 const locale = (lang: Lang) => (lang === 'de' ? 'de-DE' : 'en-GB')
@@ -186,13 +187,18 @@ function TrainingStats() {
     const volThis = volume(thisWeek, Infinity)
     const volLast = volume(lastWeek, lastWeek + (now - thisWeek))
 
-    // Sets per muscle group in the last 7 and 30 days, and when each group was last trained.
-    const groupStats = new Map<MuscleGroup, GroupStat>(MUSCLE_GROUPS.map((g) => [g, { d7: 0, d30: 0 }]))
+    // Sets per muscle in the last 7 and 30 days, and when each muscle was last trained.
+    // Assisting muscles get only their share of a set (see muscles.ts).
+    const muscleStats = new Map<Muscle, MuscleStat>(MUSCLES.map((m) => [m, { d7: 0, d30: 0 }]))
     for (const s of done) {
-      const g = groupStats.get(byId.get(s.exerciseId)?.group ?? 'other')!
-      if (s.createdAt >= now - 7 * DAY) g.d7++
-      if (s.createdAt >= now - 30 * DAY) g.d30++
-      if (s.createdAt > (g.last ?? 0)) g.last = s.createdAt
+      const ex = byId.get(s.exerciseId)
+      if (!ex) continue
+      for (const [m, share] of Object.entries(exerciseMuscles(ex)) as [Muscle, number][]) {
+        const stat = muscleStats.get(m)!
+        if (s.createdAt >= now - 7 * DAY) stat.d7 += share
+        if (s.createdAt >= now - 30 * DAY) stat.d30 += share
+        if (s.createdAt > (stat.last ?? 0)) stat.last = s.createdAt
+      }
     }
 
     const best = new Map<string, { e1rm: number; weight: number; reps: number; at: number }>()
@@ -214,7 +220,7 @@ function TrainingStats() {
       volThis,
       volLast,
       weeks,
-      groupStats,
+      muscleStats,
       records,
     }
   }, [data])
@@ -278,7 +284,7 @@ function TrainingStats() {
         </div>
       </div>
 
-      <MuscleCard stats={stats.groupStats} />
+      <MuscleCard stats={stats.muscleStats} />
 
       {!!stats.records.length && (
         <>
@@ -310,22 +316,22 @@ function TrainingStats() {
   )
 }
 
-type GroupStat = { d7: number; d30: number; last?: number }
+type MuscleStat = { d7: number; d30: number; last?: number }
 
-/** Shade by sets per week: a handful, a solid amount, or plenty (about 8+ sets per week). */
+/** Colour by sets per week: just a trace, a few, a solid amount, or plenty (8+). */
 const levelFor = (sets: number, days: number): Level => {
   const perWeek = (sets * 7) / days
-  return sets === 0 ? 0 : perWeek < 4 ? 1 : perWeek < 8 ? 2 : 3
+  return sets <= 0 ? 0 : perWeek < 1 ? 1 : perWeek < 4 ? 2 : perWeek < 8 ? 3 : 4
 }
 
-function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
-  const { t } = useI18n()
+function MuscleCard({ stats }: { stats: Map<Muscle, MuscleStat> }) {
+  const { t, lang } = useI18n()
   const [days, setDays] = useState<7 | 30>(7)
-  const count = (g: MuscleGroup) => (days === 7 ? stats.get(g)!.d7 : stats.get(g)!.d30)
-  const levels = Object.fromEntries(MAP_GROUPS.map((g) => [g, levelFor(count(g), days)])) as Record<MapGroup, Level>
-  // Body groups always, cardio/other only when they were done in this range.
-  const rows = MUSCLE_GROUPS.filter((g) => (MAP_GROUPS as readonly string[]).includes(g) || count(g) > 0)
-  const max = Math.max(1, ...rows.map(count))
+  const raw = (m: Muscle) => (days === 7 ? stats.get(m)!.d7 : stats.get(m)!.d30)
+  const levels = Object.fromEntries(MUSCLES.map((m) => [m, levelFor(raw(m), days)])) as Record<Muscle, Level>
+  // Most trained first; untrained muscles last, longest-neglected at the bottom.
+  const rows = [...MUSCLES].sort((a, b) => raw(b) - raw(a) || (stats.get(b)!.last ?? 0) - (stats.get(a)!.last ?? 0))
+  const max = Math.max(1, ...rows.map(raw))
   const ago = (ts?: number) => {
     if (!ts) return t('neverTrained')
     // Calendar days, so a workout yesterday evening counts as 1 day ago.
@@ -337,7 +343,7 @@ function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
   return (
     <>
       <h3 className="group-title">{t('muscleMap')}</h3>
-      <div className="card hbars">
+      <div className="card hbars mm-card">
         <div className="segmented">
           {([7, 30] as const).map((d) => (
             <button key={d} className={days === d ? 'active' : ''} onClick={() => setDays(d)}>
@@ -351,29 +357,32 @@ function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
             <i className="mm-swatch mm-l0" /> 0
           </span>
           <span>
-            <i className="mm-swatch mm-l1" /> 1–3
+            <i className="mm-swatch mm-l1" /> &lt;1
           </span>
           <span>
-            <i className="mm-swatch mm-l2" /> 4–7
+            <i className="mm-swatch mm-l2" /> 1–3
           </span>
           <span>
-            <i className="mm-swatch mm-l3" /> 8+
+            <i className="mm-swatch mm-l3" /> 4–7
+          </span>
+          <span>
+            <i className="mm-swatch mm-l4" /> 8+
           </span>
         </div>
-        {rows.map((g) => (
-          <div key={g} className="hbar-row">
-            <span className="hbar-label">{t(`group_${g}` as Key)}</span>
-            {count(g) ? (
+        {rows.map((m) => (
+          <div key={m} className="hbar-row">
+            <span className="hbar-label">{t(`muscle_${m}` as Key)}</span>
+            {raw(m) > 0 ? (
               <span className="hbar-track">
                 <span
-                  className={`hbar mm-l${levelFor(count(g), days)}`}
-                  style={{ width: `${(count(g) / max) * 100}%`, background: 'var(--mm)' }}
+                  className={`hbar mm-l${levels[m]}`}
+                  style={{ width: `${(raw(m) / max) * 100}%`, background: 'var(--mm)' }}
                 />
               </span>
             ) : (
-              <span className="muted small">{ago(stats.get(g)!.last)}</span>
+              <span className="muted small">{ago(stats.get(m)!.last)}</span>
             )}
-            <span className="hbar-value">{count(g)}</span>
+            <span className="hbar-value">{fmt(Math.round(raw(m) * 10) / 10, lang)}</span>
           </div>
         ))}
         <p className="muted small center">{t('muscleMapHint')}</p>
