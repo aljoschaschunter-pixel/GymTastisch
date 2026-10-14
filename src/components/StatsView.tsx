@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { dayKey, db, estimate1RM, type BodyWeight } from '../db'
 import { useI18n, type Key, type Lang } from '../i18n'
 import { useNav } from '../nav'
-import { exerciseMuscles, MUSCLES, type Muscle } from '../muscles'
+import { exerciseMuscles, MUSCLE_AREAS, MUSCLE_TREE, MUSCLES, type Muscle, type MuscleArea } from '../muscles'
 import { exerciseName } from '../seed'
 import { DAY, prevWeek, weekStart, weekStreak } from '../weeks'
 import { Chart } from './Chart'
@@ -327,18 +327,34 @@ const levelFor = (sets: number, days: number): Level => {
 function MuscleCard({ stats }: { stats: Map<Muscle, MuscleStat> }) {
   const { t, lang } = useI18n()
   const [days, setDays] = useState<7 | 30>(7)
-  const raw = (m: Muscle) => (days === 7 ? stats.get(m)!.d7 : stats.get(m)!.d30)
-  const levels = Object.fromEntries(MUSCLES.map((m) => [m, levelFor(raw(m), days)])) as Record<Muscle, Level>
-  // Most trained first; untrained muscles last, longest-neglected at the bottom.
-  const rows = [...MUSCLES].sort((a, b) => raw(b) - raw(a) || (stats.get(b)!.last ?? 0) - (stats.get(a)!.last ?? 0))
-  const max = Math.max(1, ...rows.map(raw))
-  const ago = (ts?: number) => {
+  const [open, setOpen] = useState<MuscleArea>()
+  const sets = (m: Muscle) => (days === 7 ? stats.get(m)!.d7 : stats.get(m)!.d30)
+  const levels = Object.fromEntries(MUSCLES.map((m) => [m, levelFor(sets(m), days)])) as Record<Muscle, Level>
+  // An area counts as trained as much as its most trained head.
+  const areaSets = (a: MuscleArea) => Math.max(...MUSCLE_TREE[a].map(sets))
+  const areaLast = (a: MuscleArea) => Math.max(0, ...MUSCLE_TREE[a].map((m) => stats.get(m)!.last ?? 0))
+  // Most trained first; untrained areas last, longest-neglected at the bottom.
+  const areas = [...MUSCLE_AREAS].sort((a, b) => areaSets(b) - areaSets(a) || areaLast(b) - areaLast(a))
+  const max = Math.max(1, ...areas.map(areaSets))
+  const ago = (ts: number) => {
     if (!ts) return t('neverTrained')
     // Calendar days, so a workout yesterday evening counts as 1 day ago.
     const midnight = (d: number) => new Date(d).setHours(0, 0, 0, 0)
     const n = Math.round((midnight(Date.now()) - midnight(ts)) / DAY)
     return t('lastTrained', { n })
   }
+  const bar = (value: number, last: number) =>
+    value > 0 ? (
+      <span className="hbar-track">
+        <span
+          className={`hbar mm-l${levelFor(value, days)}`}
+          style={{ width: `${(value / max) * 100}%`, background: 'var(--mm)' }}
+        />
+      </span>
+    ) : (
+      <span className="muted small">{ago(last)}</span>
+    )
+  const num = (v: number) => fmt(Math.round(v * 10) / 10, lang)
 
   return (
     <>
@@ -369,22 +385,35 @@ function MuscleCard({ stats }: { stats: Map<Muscle, MuscleStat> }) {
             <i className="mm-swatch mm-l4" /> 8+
           </span>
         </div>
-        {rows.map((m) => (
-          <div key={m} className="hbar-row">
-            <span className="hbar-label">{t(`muscle_${m}` as Key)}</span>
-            {raw(m) > 0 ? (
-              <span className="hbar-track">
-                <span
-                  className={`hbar mm-l${levels[m]}`}
-                  style={{ width: `${(raw(m) / max) * 100}%`, background: 'var(--mm)' }}
-                />
-              </span>
-            ) : (
-              <span className="muted small">{ago(stats.get(m)!.last)}</span>
-            )}
-            <span className="hbar-value">{fmt(Math.round(raw(m) * 10) / 10, lang)}</span>
-          </div>
-        ))}
+        {areas.map((a) => {
+          const heads = MUSCLE_TREE[a]
+          const expandable = heads.length > 1
+          return (
+            <div key={a} className="mm-area">
+              <button
+                className="hbar-row mm-row"
+                disabled={!expandable}
+                aria-expanded={expandable ? open === a : undefined}
+                onClick={() => setOpen(open === a ? undefined : a)}
+              >
+                <span className="hbar-label">
+                  {t(`area_${a}` as Key)}
+                  {expandable && <Icon name="chevronDown" size={14} className={`chev ${open === a ? 'flip' : ''}`} />}
+                </span>
+                {bar(areaSets(a), areaLast(a))}
+                <span className="hbar-value">{num(areaSets(a))}</span>
+              </button>
+              {open === a &&
+                heads.map((m) => (
+                  <div key={m} className="hbar-row mm-head">
+                    <span className="hbar-label">{t(`muscle_${m}` as Key)}</span>
+                    {bar(sets(m), stats.get(m)!.last ?? 0)}
+                    <span className="hbar-value">{num(sets(m))}</span>
+                  </div>
+                ))}
+            </div>
+          )
+        })}
         <p className="muted small center">{t('muscleMapHint')}</p>
       </div>
     </>

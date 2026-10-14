@@ -1,96 +1,191 @@
 import type { Exercise, MuscleGroup } from './db'
 
-/** Individual muscles shown on the body map. */
-export const MUSCLES = [
-  'chest',
-  'front_delts',
-  'side_delts',
-  'rear_delts',
-  'biceps',
-  'triceps',
-  'forearms',
-  'traps',
-  'lats',
-  'lower_back',
-  'abs',
-  'obliques',
-  'glutes',
-  'quads',
-  'hamstrings',
-  'adductors',
-  'calves',
-] as const
-export type Muscle = (typeof MUSCLES)[number]
+/**
+ * Muscles and muscle heads shown on the body map, grouped as they are listed in the statistics.
+ * Deep muscles that can't be seen from the outside (e.g. vastus intermedius, rhomboids) are
+ * counted with the visible muscle that covers them.
+ */
+export const MUSCLE_TREE = {
+  chest: ['chest_upper', 'chest_lower'],
+  shoulders: ['front_delts', 'side_delts', 'rear_delts'],
+  biceps: ['biceps_long', 'biceps_short', 'brachialis'],
+  triceps: ['triceps_long', 'triceps_lateral', 'triceps_medial'],
+  forearms: ['forearm_flexors', 'forearm_extensors'],
+  traps: ['traps_upper', 'traps_mid'],
+  lats: ['lats'],
+  lower_back: ['lower_back'],
+  core: ['abs', 'obliques'],
+  glutes: ['glute_max', 'glute_med'],
+  quads: ['rectus_femoris', 'vastus_lateralis', 'vastus_medialis'],
+  hamstrings: ['hamstrings_lateral', 'hamstrings_medial'],
+  adductors: ['adductors'],
+  calves: ['gastrocnemius', 'soleus'],
+} as const
+
+export type MuscleArea = keyof typeof MUSCLE_TREE
+export type Muscle = (typeof MUSCLE_TREE)[MuscleArea][number]
+export const MUSCLE_AREAS = Object.keys(MUSCLE_TREE) as MuscleArea[]
+export const MUSCLES = Object.values(MUSCLE_TREE).flat() as Muscle[]
 
 /** Share of a set that counts for a muscle: 1 = target muscle, below 1 = assisting or stabilising muscle. */
 export type MuscleShares = Partial<Record<Muscle, number>>
 
-// Assisting muscles count less than the target, roughly following how much they work:
-// 0.5 = strong synergist (e.g. triceps in pressing, biceps in pulling),
-// 0.25 = clearly involved, 0.1 = mainly stabilising.
-const PRESS: MuscleShares = { chest: 1, front_delts: 0.5, triceps: 0.5 }
-const FLY: MuscleShares = { chest: 1, front_delts: 0.25 }
-const ROW: MuscleShares = { lats: 1, traps: 1, rear_delts: 0.5, biceps: 0.5, forearms: 0.25, lower_back: 0.1 }
-const PULLDOWN: MuscleShares = { lats: 1, biceps: 0.5, traps: 0.25, rear_delts: 0.25, forearms: 0.25 }
-const SQUAT: MuscleShares = { quads: 1, glutes: 1, adductors: 0.5, hamstrings: 0.1, lower_back: 0.25, abs: 0.1 }
-const LEG_CURL: MuscleShares = { hamstrings: 1, calves: 0.1 }
-const OVERHEAD: MuscleShares = { front_delts: 1, side_delts: 0.5, triceps: 0.5, traps: 0.1 }
-const LATERAL: MuscleShares = { side_delts: 1, traps: 0.25 }
-const REAR: MuscleShares = { rear_delts: 1, traps: 0.5 }
-const CURL: MuscleShares = { biceps: 1, forearms: 0.25 }
-const TRICEPS: MuscleShares = { triceps: 1 }
+/*
+ * Shares follow how much a muscle works in the exercise:
+ *   1    target muscle
+ *   0.5  strong synergist (e.g. triceps in pressing, biceps in pulling). Meta-analyses on
+ *        "indirect" volume count such sets at about half a set (Pelland et al., 2024).
+ *   0.25 clearly involved
+ *   0.1  mainly stabilising
+ * Head-specific choices:
+ *   - Flat pressing works mainly the sternal (mid/lower) chest, incline pressing the clavicular
+ *     (upper) chest (Chaves et al., 2024).
+ *   - Pressing works the lateral and medial triceps heads more than the long head, which crosses
+ *     the shoulder; overhead extensions grow the long head most (Maeo et al., 2023).
+ *   - Squats and leg presses grow the vasti, glutes and adductors, but hardly the rectus femoris
+ *     or hamstrings (Kubo et al., 2019); leg extensions do train the rectus femoris.
+ *   - Seated leg curls train the hamstrings in a lengthened position (Maeo et al., 2021).
+ *   - Hammer curls shift work to the brachialis and brachioradialis; preacher curls to the short head.
+ *   - Seated calf raises (knee bent) mainly train the soleus, standing ones the gastrocnemius.
+ *   - Abduction machines train the gluteus medius.
+ */
+const TRICEPS_PRESS: MuscleShares = { triceps_lateral: 0.5, triceps_medial: 0.5, triceps_long: 0.25 }
+const FLAT_PRESS: MuscleShares = { chest_lower: 1, chest_upper: 0.5, front_delts: 0.5, ...TRICEPS_PRESS }
+const INCLINE_PRESS: MuscleShares = { chest_upper: 1, chest_lower: 0.5, front_delts: 0.75, ...TRICEPS_PRESS }
+const FLY: MuscleShares = { chest_lower: 1, chest_upper: 0.5, front_delts: 0.25, biceps_short: 0.1 }
+const ELBOW_FLEXORS: MuscleShares = { biceps_long: 0.5, biceps_short: 0.5, brachialis: 0.5, forearm_flexors: 0.25 }
+const PULLDOWN: MuscleShares = { lats: 1, ...ELBOW_FLEXORS, traps_mid: 0.5, rear_delts: 0.25 }
+const ROW: MuscleShares = { traps_mid: 1, lats: 1, rear_delts: 0.5, ...ELBOW_FLEXORS, lower_back: 0.1 }
+const SQUAT: MuscleShares = {
+  vastus_lateralis: 1,
+  vastus_medialis: 1,
+  glute_max: 1,
+  adductors: 1,
+  rectus_femoris: 0.25,
+  lower_back: 0.25,
+  hamstrings_lateral: 0.1,
+  hamstrings_medial: 0.1,
+  glute_med: 0.1,
+  abs: 0.1,
+}
+const LUNGE: MuscleShares = {
+  vastus_lateralis: 1,
+  vastus_medialis: 1,
+  glute_max: 1,
+  adductors: 0.5,
+  rectus_femoris: 0.25,
+  glute_med: 0.25,
+  hamstrings_lateral: 0.1,
+  hamstrings_medial: 0.1,
+}
+const LEG_CURL: MuscleShares = { hamstrings_lateral: 1, hamstrings_medial: 1, gastrocnemius: 0.25 }
+const OVERHEAD: MuscleShares = {
+  front_delts: 1,
+  side_delts: 0.5,
+  ...TRICEPS_PRESS,
+  traps_upper: 0.25,
+  chest_upper: 0.25,
+}
+const LATERAL: MuscleShares = { side_delts: 1, traps_upper: 0.25, front_delts: 0.1 }
+const REAR: MuscleShares = { rear_delts: 1, traps_mid: 0.5 }
+const CURL: MuscleShares = { biceps_long: 1, biceps_short: 1, brachialis: 0.5, forearm_flexors: 0.25 }
+const PREACHER: MuscleShares = { biceps_short: 1, biceps_long: 0.75, brachialis: 0.75, forearm_flexors: 0.25 }
+const PUSHDOWN: MuscleShares = { triceps_lateral: 1, triceps_medial: 1, triceps_long: 0.5 }
 const CRUNCH: MuscleShares = { abs: 1, obliques: 0.25 }
 
 export const BUILTIN_MUSCLES: Record<string, MuscleShares> = {
-  bench_press: PRESS,
-  db_bench_press: PRESS,
-  incline_bench_press: { ...PRESS, front_delts: 0.75 },
-  incline_db_press: { ...PRESS, front_delts: 0.75 },
-  chest_press_machine: PRESS,
-  incline_chest_press_machine: { ...PRESS, front_delts: 0.75 },
-  push_up: { ...PRESS, abs: 0.1 },
+  bench_press: FLAT_PRESS,
+  db_bench_press: FLAT_PRESS,
+  chest_press_machine: FLAT_PRESS,
+  incline_bench_press: INCLINE_PRESS,
+  incline_db_press: INCLINE_PRESS,
+  incline_chest_press_machine: INCLINE_PRESS,
+  push_up: { ...FLAT_PRESS, abs: 0.1 },
   butterfly: FLY,
   cable_fly: FLY,
   pec_fly_db: FLY,
-  dips: { triceps: 1, chest: 1, front_delts: 0.5 },
+  dips: {
+    triceps_lateral: 1,
+    triceps_medial: 1,
+    triceps_long: 0.75,
+    chest_lower: 1,
+    chest_upper: 0.25,
+    front_delts: 0.5,
+  },
 
   deadlift: {
-    glutes: 1,
-    hamstrings: 1,
+    glute_max: 1,
     lower_back: 1,
-    quads: 0.5,
-    traps: 0.5,
+    hamstrings_lateral: 0.5,
+    hamstrings_medial: 0.5,
     adductors: 0.5,
-    forearms: 0.5,
+    vastus_lateralis: 0.5,
+    vastus_medialis: 0.5,
+    rectus_femoris: 0.25,
+    traps_upper: 0.5,
+    traps_mid: 0.25,
     lats: 0.25,
+    forearm_flexors: 0.5,
     abs: 0.1,
   },
-  romanian_deadlift: { hamstrings: 1, glutes: 1, lower_back: 0.5, adductors: 0.25, forearms: 0.25 },
-  back_extension: { lower_back: 1, glutes: 0.5, hamstrings: 0.5 },
+  romanian_deadlift: {
+    hamstrings_lateral: 1,
+    hamstrings_medial: 1,
+    glute_max: 1,
+    lower_back: 0.5,
+    adductors: 0.5,
+    forearm_flexors: 0.25,
+    traps_upper: 0.1,
+  },
+  back_extension: { lower_back: 1, glute_max: 0.5, hamstrings_lateral: 0.5, hamstrings_medial: 0.5 },
   seated_row: ROW,
-  barbell_row: { ...ROW, lower_back: 0.25 },
   db_row: ROW,
   row_machine: ROW,
+  barbell_row: { ...ROW, lower_back: 0.5, glute_max: 0.1, hamstrings_lateral: 0.1, hamstrings_medial: 0.1 },
   lat_pulldown: PULLDOWN,
-  close_grip_pulldown: PULLDOWN,
-  pull_up: { ...PULLDOWN, abs: 0.1 },
+  close_grip_pulldown: { ...PULLDOWN, brachialis: 0.75 },
+  pull_up: { ...PULLDOWN, forearm_flexors: 0.5, abs: 0.1 },
   assisted_pull_up: PULLDOWN,
 
   squat: SQUAT,
-  hack_squat: { ...SQUAT, lower_back: 0.1 },
   goblet_squat: { ...SQUAT, abs: 0.25 },
-  leg_press: { quads: 1, glutes: 0.5, adductors: 0.5, hamstrings: 0.1 },
-  lunge: { quads: 1, glutes: 1, adductors: 0.5, hamstrings: 0.25, calves: 0.1 },
-  bulgarian_split_squat: { quads: 1, glutes: 1, adductors: 0.5, hamstrings: 0.25, calves: 0.1 },
-  leg_extension: { quads: 1 },
+  hack_squat: {
+    vastus_lateralis: 1,
+    vastus_medialis: 1,
+    rectus_femoris: 0.25,
+    glute_max: 0.5,
+    adductors: 0.5,
+    hamstrings_lateral: 0.1,
+    hamstrings_medial: 0.1,
+  },
+  leg_press: {
+    vastus_lateralis: 1,
+    vastus_medialis: 1,
+    rectus_femoris: 0.25,
+    glute_max: 0.5,
+    adductors: 0.5,
+    hamstrings_lateral: 0.1,
+    hamstrings_medial: 0.1,
+  },
+  lunge: LUNGE,
+  bulgarian_split_squat: LUNGE,
+  leg_extension: { rectus_femoris: 1, vastus_lateralis: 1, vastus_medialis: 1 },
   leg_curl: LEG_CURL,
   lying_leg_curl: LEG_CURL,
-  hip_thrust: { glutes: 1, hamstrings: 0.25, quads: 0.25, adductors: 0.25 },
-  glute_kickback: { glutes: 1, hamstrings: 0.25 },
-  abductor: { glutes: 1 },
+  hip_thrust: {
+    glute_max: 1,
+    glute_med: 0.25,
+    hamstrings_lateral: 0.25,
+    hamstrings_medial: 0.25,
+    vastus_lateralis: 0.25,
+    vastus_medialis: 0.25,
+    adductors: 0.25,
+  },
+  glute_kickback: { glute_max: 1, glute_med: 0.25, hamstrings_lateral: 0.25, hamstrings_medial: 0.25 },
+  abductor: { glute_med: 1, glute_max: 0.5 },
   adductor: { adductors: 1 },
-  calf_raise: { calves: 1 },
-  seated_calf_raise: { calves: 1 },
+  calf_raise: { gastrocnemius: 1, soleus: 0.5 },
+  seated_calf_raise: { soleus: 1, gastrocnemius: 0.25 },
 
   overhead_press: { ...OVERHEAD, abs: 0.1 },
   db_shoulder_press: OVERHEAD,
@@ -99,35 +194,42 @@ export const BUILTIN_MUSCLES: Record<string, MuscleShares> = {
   lateral_raise_machine: LATERAL,
   cable_lateral_raise: LATERAL,
   reverse_fly: REAR,
-  face_pull: { ...REAR, side_delts: 0.25 },
+  face_pull: { ...REAR, side_delts: 0.25, traps_upper: 0.25 },
 
   biceps_curl: CURL,
   barbell_curl: CURL,
   cable_curl: CURL,
-  preacher_curl: CURL,
-  biceps_curl_machine: CURL,
-  hammer_curl: { biceps: 1, forearms: 0.5 },
-  triceps_pushdown: TRICEPS,
-  triceps_machine: TRICEPS,
-  skull_crusher: TRICEPS,
-  overhead_triceps_extension: TRICEPS,
+  preacher_curl: PREACHER,
+  biceps_curl_machine: PREACHER,
+  hammer_curl: { brachialis: 1, forearm_extensors: 1, biceps_long: 0.5, biceps_short: 0.25 },
+  triceps_pushdown: PUSHDOWN,
+  triceps_machine: PUSHDOWN,
+  skull_crusher: { triceps_long: 1, triceps_lateral: 1, triceps_medial: 1 },
+  overhead_triceps_extension: { triceps_long: 1, triceps_lateral: 0.75, triceps_medial: 0.75 },
 
   crunch: CRUNCH,
   cable_crunch: CRUNCH,
   ab_machine: CRUNCH,
-  plank: { abs: 1, obliques: 0.5, front_delts: 0.1, glutes: 0.1 },
-  hanging_leg_raise: { abs: 1, obliques: 0.5, forearms: 0.25, lats: 0.1 },
-  leg_raise: { abs: 1, obliques: 0.25 },
+  plank: { abs: 1, obliques: 0.5, front_delts: 0.1, glute_max: 0.1 },
+  hanging_leg_raise: { abs: 1, obliques: 0.5, rectus_femoris: 0.25, forearm_flexors: 0.25, lats: 0.1 },
+  leg_raise: { abs: 1, obliques: 0.25, rectus_femoris: 0.25 },
   russian_twist: { obliques: 1, abs: 0.5 },
 }
 
 /** Best guess for custom exercises, from their category. */
 const GROUP_MUSCLES: Record<MuscleGroup, MuscleShares> = {
-  chest: PRESS,
+  chest: FLAT_PRESS,
   back: ROW,
-  legs: { quads: 1, glutes: 1, hamstrings: 0.5, adductors: 0.25 },
+  legs: { ...SQUAT, hamstrings_lateral: 0.5, hamstrings_medial: 0.5 },
   shoulders: OVERHEAD,
-  arms: { biceps: 0.5, triceps: 0.5, forearms: 0.25 },
+  arms: {
+    biceps_long: 0.5,
+    biceps_short: 0.5,
+    brachialis: 0.25,
+    triceps_long: 0.5,
+    triceps_lateral: 0.5,
+    triceps_medial: 0.5,
+  },
   core: CRUNCH,
   cardio: {},
   other: {},
