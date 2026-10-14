@@ -187,6 +187,25 @@ export function SettingsView() {
       <p className="muted small center">
         GymTastisch · {t('about')}
       </p>
+      <button className="btn ghost small reload-btn" onClick={() => void reloadApp()}>
+        {t('reloadApp')}
+      </button>
+      <p className="muted small center">
+        {t('version')} {__APP_VERSION__}
+      </p>
     </div>
   )
+}
+
+/** Fetch the latest version: drop the offline copy and load the app again. Workout data is kept. */
+async function reloadApp() {
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations()) ?? []
+    await Promise.all(regs.map((r) => r.unregister()))
+    const keys = (await window.caches?.keys()) ?? []
+    await Promise.all(keys.map((k) => caches.delete(k)))
+  } catch {
+    // reload anyway
+  }
+  location.reload()
 }

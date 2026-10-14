@@ -2386,3 +2386,9 @@ select {
   flex-direction: column;
   gap: 4px;
 }
+
+.reload-btn {
+  align-self: center;
+  margin: 0 auto;
+  display: flex;
+}

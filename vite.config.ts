@@ -5,8 +5,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 // GitHub Pages serves the app from /GymTastisch/, set via BASE_PATH in the deploy workflow.
 const base = process.env.BASE_PATH ?? '/'
 
+// Shown in Settings so the installed version can be checked.
+const version = `${new Date().toISOString().slice(0, 10)} · ${process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'}`
+
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(version) },
   build: { target: ['safari16', 'es2022'] },
   plugins: [
     react(),
