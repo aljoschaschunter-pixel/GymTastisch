@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { db, MAX_PLANS, uid, type Plan, type Workout } from '../db'
+import { dayKey, db, MAX_PLANS, uid, type Plan, type Workout } from '../db'
 import { unlockAudio } from '../device'
 import { useI18n, type T } from '../i18n'
 import { exerciseName } from '../seed'
@@ -11,11 +11,14 @@ import { WorkoutSummary } from './HistoryView'
 import { Icon } from './Icon'
 import { ExerciseThumb, Sheet } from './ui'
 
-export async function startWorkout(plan?: Plan) {
+/** Start a workout now, or with `day` one for an earlier day whose sets are dated that day. */
+export async function startWorkout(plan?: Plan, day?: Date) {
   unlockAudio()
+  const now = Date.now()
   await db.workouts.add({
     id: uid(),
-    startedAt: Date.now(),
+    startedAt: day ? new Date(day.getFullYear(), day.getMonth(), day.getDate(), 18).getTime() : now,
+    trackedAt: day ? now : undefined,
     exerciseIds: plan ? [...plan.exerciseIds] : [],
     planId: plan?.id,
   })
@@ -264,7 +267,7 @@ export function WeekCard({ workouts, plans }: { workouts: Workout[]; plans?: Pla
   )
 }
 
-/** Log a workout done without the app, change it or remove it. One entry per day. */
+/** Track a workout for a day of this week, or set the day to no workout. One workout per day. */
 function LogPastSheet({
   date,
   plans,
@@ -283,35 +286,23 @@ function LogPastSheet({
     month: 'long',
   })
   const weekday = (date.getDay() + 6) % 7
+  const isToday = dayKey(date) === dayKey()
   const tracked = existing.filter((w) => !w.logged)
   const logged = existing.filter((w) => w.logged)
   const current = logged.find((w) => w.planId) ?? logged[0]
-  const isCurrent = (plan?: Plan) => !!current && current.planId === plan?.id && logged.length === 1
-  const log = async (plan?: Plan) => {
-    if (isCurrent(plan)) return onClose()
-    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 18).getTime()
-    await db.transaction('rw', db.workouts, async () => {
-      await db.workouts.bulkDelete(logged.map((w) => w.id))
-      await db.workouts.add({
-        id: uid(),
-        startedAt: Math.min(start, Date.now() - 60_000),
-        endedAt: Math.min(start + 3_600_000, Date.now()),
-        exerciseIds: plan ? [...plan.exerciseIds] : [],
-        planId: plan?.id,
-        logged: true,
-      })
-    })
+  const track = async (plan?: Plan) => {
+    await startWorkout(plan, isToday ? undefined : date)
     onClose()
   }
-  const remove = () => db.workouts.bulkDelete(logged.map((w) => w.id)).then(onClose)
+  const clear = () => db.workouts.bulkDelete(logged.map((w) => w.id)).then(onClose)
   // Days planned for this weekday first.
   const ordered = [...plans].sort(
     (a, b) => Number(!!b.weekdays?.includes(weekday)) - Number(!!a.weekdays?.includes(weekday)),
   )
-  const option = (key: string, name: string, plan?: Plan) => (
+  const option = (key: string, name: string, onClick: () => void, on: boolean) => (
     <li key={key}>
-      <button className="list-item" aria-pressed={isCurrent(plan)} onClick={() => void log(plan)}>
-        <span className={`play-dot ${current?.planId === plan?.id ? '' : 'ghost'}`}>
+      <button className="list-item" aria-pressed={on} onClick={onClick}>
+        <span className={`play-dot ${on ? '' : 'ghost'}`}>
           <Icon name="check" size={16} />
         </span>
         <span className="grow">{name}</span>
@@ -328,16 +319,12 @@ function LogPastSheet({
 
   return (
     <Sheet title={t('logPastTitle', { day: label })} onClose={onClose}>
-      <p className="muted small">{current ? t('logPastChange') : t('logPastHint')}</p>
+      <p className="muted small">{t('logPastHint')}</p>
       <ul className="list">
-        {ordered.map((p) => option(p.id, p.name, p))}
-        {option('none', t('withoutDay'))}
+        {ordered.map((p) => option(p.id, p.name, () => void track(p), !!current && current.planId === p.id))}
+        {option('free', t('freeWorkout'), () => void track(), !!current && !current.planId)}
+        {option('none', t('noWorkout'), () => void clear(), !current)}
       </ul>
-      {current && (
-        <button className="btn ghost full danger-text" onClick={() => void remove()}>
-          <Icon name="trash" size={18} /> {t('removeLogged')}
-        </button>
-      )}
     </Sheet>
   )
 }
