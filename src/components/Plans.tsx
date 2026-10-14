@@ -264,7 +264,7 @@ export function WeekCard({ workouts, plans }: { workouts: Workout[]; plans?: Pla
   )
 }
 
-/** Log a workout done without the app, or remove such an entry. */
+/** Log a workout done without the app, change it or remove it. One entry per day. */
 function LogPastSheet({
   date,
   plans,
@@ -283,57 +283,61 @@ function LogPastSheet({
     month: 'long',
   })
   const weekday = (date.getDay() + 6) % 7
+  const tracked = existing.filter((w) => !w.logged)
+  const logged = existing.filter((w) => w.logged)
+  const current = logged.find((w) => w.planId) ?? logged[0]
+  const isCurrent = (plan?: Plan) => !!current && current.planId === plan?.id && logged.length === 1
   const log = async (plan?: Plan) => {
+    if (isCurrent(plan)) return onClose()
     const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 18).getTime()
-    await db.workouts.add({
-      id: uid(),
-      startedAt: Math.min(start, Date.now() - 60_000),
-      endedAt: Math.min(start + 3_600_000, Date.now()),
-      exerciseIds: plan ? [...plan.exerciseIds] : [],
-      planId: plan?.id,
-      logged: true,
+    await db.transaction('rw', db.workouts, async () => {
+      await db.workouts.bulkDelete(logged.map((w) => w.id))
+      await db.workouts.add({
+        id: uid(),
+        startedAt: Math.min(start, Date.now() - 60_000),
+        endedAt: Math.min(start + 3_600_000, Date.now()),
+        exerciseIds: plan ? [...plan.exerciseIds] : [],
+        planId: plan?.id,
+        logged: true,
+      })
     })
     onClose()
   }
-  const removable = existing.filter((w) => w.logged)
+  const remove = () => db.workouts.bulkDelete(logged.map((w) => w.id)).then(onClose)
   // Days planned for this weekday first.
   const ordered = [...plans].sort(
     (a, b) => Number(!!b.weekdays?.includes(weekday)) - Number(!!a.weekdays?.includes(weekday)),
   )
+  const option = (key: string, name: string, plan?: Plan) => (
+    <li key={key}>
+      <button className="list-item" aria-pressed={isCurrent(plan)} onClick={() => void log(plan)}>
+        <span className={`play-dot ${current?.planId === plan?.id ? '' : 'ghost'}`}>
+          <Icon name="check" size={16} />
+        </span>
+        <span className="grow">{name}</span>
+      </button>
+    </li>
+  )
+
+  if (tracked.length > 0)
+    return (
+      <Sheet title={t('logPastTitle', { day: label })} onClose={onClose}>
+        <p className="muted small">{t('dayTracked')}</p>
+      </Sheet>
+    )
 
   return (
     <Sheet title={t('logPastTitle', { day: label })} onClose={onClose}>
-      <p className="muted small">{t('logPastHint')}</p>
+      <p className="muted small">{current ? t('logPastChange') : t('logPastHint')}</p>
       <ul className="list">
-        {ordered.map((p) => (
-          <li key={p.id}>
-            <button className="list-item" onClick={() => void log(p)}>
-              <span className="play-dot">
-                <Icon name="check" size={16} />
-              </span>
-              <span className="grow">{p.name}</span>
-            </button>
-          </li>
-        ))}
-        <li>
-          <button className="list-item" onClick={() => void log()}>
-            <span className="play-dot ghost">
-              <Icon name="check" size={16} />
-            </span>
-            <span className="grow">{t('withoutDay')}</span>
-          </button>
-        </li>
+        {ordered.map((p) => option(p.id, p.name, p))}
+        {option('none', t('withoutDay'))}
       </ul>
-      {removable.map((w) => (
-        <button
-          key={w.id}
-          className="btn ghost full danger-text"
-          onClick={() => db.workouts.delete(w.id).then(onClose)}
-        >
+      {current && (
+        <button className="btn ghost full danger-text" onClick={() => void remove()}>
           <Icon name="trash" size={18} /> {t('removeLogged')}
-          {w.planId ? ` · ${plans.find((p) => p.id === w.planId)?.name ?? ''}` : ''}
         </button>
-      ))}
+      )}
     </Sheet>
   )
 }

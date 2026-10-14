@@ -5,7 +5,7 @@ import { useI18n, type Key, type Lang } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseMuscles, MUSCLE_AREAS, MUSCLE_TREE, MUSCLES, type Muscle, type MuscleArea } from '../muscles'
 import { exerciseName } from '../seed'
-import { DAY, prevWeek, weekStart, weekStreak } from '../weeks'
+import { DAY, prevWeek, weekStart, weekStreak, workoutsPerWeek } from '../weeks'
 import { Chart } from './Chart'
 import { Icon } from './Icon'
 import { MuscleMap, type Level } from './MuscleMap'
@@ -172,11 +172,7 @@ function TrainingStats() {
     // Workouts per week, last 8 weeks (oldest first).
     const weeks: { start: number; count: number }[] = []
     for (let w = thisWeek, i = 0; i < 8; i++, w = prevWeek(w)) weeks.unshift({ start: w, count: 0 })
-    const perWeek = new Map<number, number>()
-    for (const w of workouts) {
-      const k = weekStart(w.startedAt)
-      perWeek.set(k, (perWeek.get(k) ?? 0) + 1)
-    }
+    const perWeek = workoutsPerWeek(workouts)
     for (const w of weeks) w.count = perWeek.get(w.start) ?? 0
 
     const streak = weekStreak(perWeek, now)
