@@ -4,7 +4,18 @@ import { useI18n, type Lang } from '../i18n'
 import { builtinImage } from '../seed'
 import { Icon } from './Icon'
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/** Bottom sheet; with `full` it covers the whole screen. */
+export function Sheet({
+  title,
+  onClose,
+  children,
+  full,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  full?: boolean
+}) {
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -13,7 +24,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     }
   }, [])
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div className={`sheet-backdrop ${full ? 'full' : ''}`} onClick={onClose}>
       <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
           <h2>{title}</h2>
