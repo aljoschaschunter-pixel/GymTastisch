@@ -1,12 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { dayKey, db, estimate1RM, MUSCLE_GROUPS, type BodyWeight } from '../db'
+import { dayKey, db, estimate1RM, MUSCLE_GROUPS, type BodyWeight, type MuscleGroup } from '../db'
 import { useI18n, type Key, type Lang } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { DAY, prevWeek, weekStart, weekStreak } from '../weeks'
 import { Chart } from './Chart'
 import { Icon } from './Icon'
+import { MAP_GROUPS, MuscleMap, type Level, type MapGroup } from './MuscleMap'
 import { ExerciseThumb, fmt, Stepper } from './ui'
 
 const locale = (lang: Lang) => (lang === 'de' ? 'de-DE' : 'en-GB')
@@ -185,15 +186,14 @@ function TrainingStats() {
     const volThis = volume(thisWeek, Infinity)
     const volLast = volume(lastWeek, lastWeek + (now - thisWeek))
 
-    const groupCounts = new Map<string, number>()
+    // Sets per muscle group in the last 7 and 30 days, and when each group was last trained.
+    const groupStats = new Map<MuscleGroup, GroupStat>(MUSCLE_GROUPS.map((g) => [g, { d7: 0, d30: 0 }]))
     for (const s of done) {
-      if (s.createdAt < now - 30 * DAY) continue
-      const g = byId.get(s.exerciseId)?.group ?? 'other'
-      groupCounts.set(g, (groupCounts.get(g) ?? 0) + 1)
+      const g = groupStats.get(byId.get(s.exerciseId)?.group ?? 'other')!
+      if (s.createdAt >= now - 7 * DAY) g.d7++
+      if (s.createdAt >= now - 30 * DAY) g.d30++
+      if (s.createdAt > (g.last ?? 0)) g.last = s.createdAt
     }
-    const groups = MUSCLE_GROUPS.map((g) => ({ group: g, count: groupCounts.get(g) ?? 0 }))
-      .filter((g) => g.count)
-      .sort((a, b) => b.count - a.count)
 
     const best = new Map<string, { e1rm: number; weight: number; reps: number; at: number }>()
     for (const s of done) {
@@ -214,7 +214,7 @@ function TrainingStats() {
       volThis,
       volLast,
       weeks,
-      groups,
+      groupStats,
       records,
     }
   }, [data])
@@ -233,7 +233,6 @@ function TrainingStats() {
 
   const volDelta = stats.volLast ? Math.round(((stats.volThis - stats.volLast) / stats.volLast) * 100) : undefined
   const maxWeek = Math.max(1, ...stats.weeks.map((w) => w.count))
-  const maxGroup = Math.max(1, ...stats.groups.map((g) => g.count))
   const weekLabel = (ts: number) => new Date(ts).toLocaleDateString(locale(lang), { day: 'numeric', month: 'numeric' })
 
   return (
@@ -279,22 +278,7 @@ function TrainingStats() {
         </div>
       </div>
 
-      {!!stats.groups.length && (
-        <>
-          <h3 className="group-title">{t('setsPerGroup')}</h3>
-          <div className="card hbars">
-            {stats.groups.map((g) => (
-              <div key={g.group} className="hbar-row">
-                <span className="hbar-label">{t(`group_${g.group}` as Key)}</span>
-                <span className="hbar-track">
-                  <span className="hbar" style={{ width: `${(g.count / maxGroup) * 100}%` }} />
-                </span>
-                <span className="hbar-value">{g.count}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <MuscleCard stats={stats.groupStats} />
 
       {!!stats.records.length && (
         <>
@@ -322,6 +306,75 @@ function TrainingStats() {
           <p className="muted small center">{t('recordsHint')}</p>
         </>
       )}
+    </>
+  )
+}
+
+type GroupStat = { d7: number; d30: number; last?: number }
+
+/** Shade by sets per week: a handful, a solid amount, or plenty (about 8+ sets per week). */
+const levelFor = (sets: number, days: number): Level => {
+  const perWeek = (sets * 7) / days
+  return sets === 0 ? 0 : perWeek < 4 ? 1 : perWeek < 8 ? 2 : 3
+}
+
+function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
+  const { t } = useI18n()
+  const [days, setDays] = useState<7 | 30>(7)
+  const count = (g: MuscleGroup) => (days === 7 ? stats.get(g)!.d7 : stats.get(g)!.d30)
+  const levels = Object.fromEntries(MAP_GROUPS.map((g) => [g, levelFor(count(g), days)])) as Record<MapGroup, Level>
+  // Body groups always, cardio/other only when they were done in this range.
+  const rows = MUSCLE_GROUPS.filter((g) => (MAP_GROUPS as readonly string[]).includes(g) || count(g) > 0)
+  const max = Math.max(1, ...rows.map(count))
+  const ago = (ts?: number) => {
+    if (!ts) return t('neverTrained')
+    // Calendar days, so a workout yesterday evening counts as 1 day ago.
+    const midnight = (d: number) => new Date(d).setHours(0, 0, 0, 0)
+    const n = Math.round((midnight(Date.now()) - midnight(ts)) / DAY)
+    return t('lastTrained', { n })
+  }
+
+  return (
+    <>
+      <h3 className="group-title">{t('muscleMap')}</h3>
+      <div className="card hbars">
+        <div className="segmented">
+          {([7, 30] as const).map((d) => (
+            <button key={d} className={days === d ? 'active' : ''} onClick={() => setDays(d)}>
+              {t(d === 7 ? 'range7' : 'range30')}
+            </button>
+          ))}
+        </div>
+        <MuscleMap levels={levels} />
+        <div className="mm-legend muted small">
+          <span>
+            <i className="mm-swatch mm-l0" /> 0
+          </span>
+          <span>
+            <i className="mm-swatch mm-l1" /> {t('levelLow')}
+          </span>
+          <span>
+            <i className="mm-swatch mm-l2" /> {t('levelMid')}
+          </span>
+          <span>
+            <i className="mm-swatch mm-l3" /> {t('levelHigh')}
+          </span>
+        </div>
+        {rows.map((g) => (
+          <div key={g} className="hbar-row">
+            <span className="hbar-label">{t(`group_${g}` as Key)}</span>
+            {count(g) ? (
+              <span className="hbar-track">
+                <span className="hbar" style={{ width: `${(count(g) / max) * 100}%` }} />
+              </span>
+            ) : (
+              <span className="muted small">{ago(stats.get(g)!.last)}</span>
+            )}
+            <span className="hbar-value">{count(g)}</span>
+          </div>
+        ))}
+        <p className="muted small center">{t('muscleMapHint')}</p>
+      </div>
     </>
   )
 }

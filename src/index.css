@@ -1698,6 +1698,70 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+.muscle-map {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  margin: 4px auto 0;
+}
+
+.mm-neutral {
+  fill: var(--surface-2);
+}
+
+.mm-muscle {
+  stroke: var(--surface);
+  stroke-width: 0.6;
+  transition: fill 0.2s, fill-opacity 0.2s;
+}
+
+.mm-l0 {
+  fill: var(--surface-3);
+}
+
+.mm-l1,
+.mm-l2,
+.mm-l3 {
+  fill: var(--accent);
+}
+
+.mm-l1 {
+  fill-opacity: 0.38;
+  background: color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+
+.mm-l2 {
+  fill-opacity: 0.62;
+  background: color-mix(in srgb, var(--accent) 62%, var(--surface));
+}
+
+.mm-l3 {
+  background: var(--accent);
+}
+
+.mm-l0.mm-swatch {
+  background: var(--surface-3);
+}
+
+.mm-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.mm-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mm-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
 .record-value {
   font-size: 18px;
   font-weight: 800;
