@@ -8,6 +8,7 @@ import { useSettings } from '../settings'
 import { Chart } from './Chart'
 import { CategoryFilter, groupByMuscle, SearchField, useExerciseList, type Category } from './ExercisePicker'
 import { Icon } from './Icon'
+import { TipsCard } from './Tips'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
 import { ExerciseThumb, fmt, Photo, setText, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
@@ -302,6 +303,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
       </div>
       {(exercise.photo || exercise.builtin) && <ExerciseThumb exercise={exercise} className="photo-large" />}
       {exercise.notes && <p className="notes">{exercise.notes}</p>}
+      <TipsCard exercise={exercise} />
 
       <h2>{t('progress')}</h2>
       {!sessions.length ? (
