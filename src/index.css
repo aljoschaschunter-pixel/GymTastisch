@@ -1715,33 +1715,41 @@ select {
   transition: fill 0.2s;
 }
 
-/* Not trained: grey. A little: orange, so gaps stand out. Solid and a lot: two clearly separate greens. */
+/* Not trained: grey. A trace: faint orange. Few sets: orange, so gaps stand out. Solid and a lot: two clearly separate greens. */
 .mm-l0 {
   --mm: var(--surface-3);
 }
 
 .mm-l1 {
-  --mm: #ff9f43;
+  --mm: color-mix(in srgb, #ff9f43 35%, var(--surface-3));
 }
 
 .mm-l2 {
-  --mm: #6f9a1c;
+  --mm: #ff9f43;
 }
 
 .mm-l3 {
+  --mm: #6f9a1c;
+}
+
+.mm-l4 {
   --mm: var(--accent);
 }
 
 @media (prefers-color-scheme: light) {
   .mm-l1 {
-    --mm: #f08a24;
+    --mm: color-mix(in srgb, #f08a24 35%, var(--surface-3));
   }
 
   .mm-l2 {
-    --mm: #b5dc4a;
+    --mm: #f08a24;
   }
 
   .mm-l3 {
+    --mm: #b5dc4a;
+  }
+
+  .mm-l4 {
     --mm: #5f8f00;
   }
 }
@@ -1752,6 +1760,10 @@ select {
 
 .mm-swatch {
   background: var(--mm);
+}
+
+.mm-card .hbar-row {
+  grid-template-columns: 128px 1fr 34px;
 }
 
 .mm-legend {
