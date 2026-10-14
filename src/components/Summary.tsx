@@ -1,11 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, estimate1RM, type Exercise, type WorkoutSet } from '../db'
 import { useI18n } from '../i18n'
-import { isBodyweight } from '../progression'
 import { exerciseName } from '../seed'
 import { Icon } from './Icon'
 import { WeekCard } from './Plans'
-import { ExerciseThumb, setText } from './ui'
+import { ExerciseThumb, setLabel } from './ui'
 
 const MILESTONES = new Set([5, 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500])
 
@@ -62,6 +61,7 @@ export function WorkoutComplete({ workoutId, onClose }: { workoutId: string; onC
       sets,
       total: finished.length,
       volume: volumeOf(sets),
+      cardioMinutes: sets.reduce((m, s) => m + (s.minutes ?? 0), 0),
       prevVolume,
       highlights,
       finished,
@@ -109,10 +109,17 @@ export function WorkoutComplete({ workoutId, onClose }: { workoutId: string; onC
             <span className="stat-big">{data.sets.length}</span>
             <span className="muted small">{t('sets')}</span>
           </div>
-          <div>
-            <span className="stat-big">{nf.format(volume)}</span>
-            <span className="muted small">{t('volume')} (kg)</span>
-          </div>
+          {volume === 0 && data.cardioMinutes > 0 ? (
+            <div>
+              <span className="stat-big">{nf.format(data.cardioMinutes)}</span>
+              <span className="muted small">{t('cardioMinutes')}</span>
+            </div>
+          ) : (
+            <div>
+              <span className="stat-big">{nf.format(volume)}</span>
+              <span className="muted small">{t('volume')} (kg)</span>
+            </div>
+          )}
         </div>
 
         {!!highlights.length && (
@@ -125,7 +132,7 @@ export function WorkoutComplete({ workoutId, onClose }: { workoutId: string; onC
                   <span className="grow min0">
                     <span className="clamp block">{exerciseName(h.exercise, t)}</span>
                     <span className="muted small">
-                      {setText(h.set.weight, h.set.reps, lang, isBodyweight(h.exercise) ? t('bodyweightShort') : '0 kg')}
+                      {setLabel(h.set, h.exercise, t, lang)}
                     </span>
                   </span>
                   <span className={`hl-tag ${h.kind}`}>

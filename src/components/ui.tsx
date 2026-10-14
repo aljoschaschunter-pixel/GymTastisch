@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { Exercise } from '../db'
-import { useI18n, type Lang } from '../i18n'
+import { cardioMetric, isTimed, METRIC_INFO } from '../cardio'
+import type { Exercise, WorkoutSet } from '../db'
+import { useI18n, type Lang, type T } from '../i18n'
+import { isBodyweight } from '../progression'
 import { builtinImage } from '../seed'
 import { Icon } from './Icon'
 
@@ -99,6 +101,23 @@ const round = (n: number) => Math.round(n * 100) / 100
 /** "60 kg × 10", or "Bodyweight × 12" when no extra weight was used. */
 export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string) =>
   `${weight > 0 ? `${fmt(weight, lang)} kg` : bodyweightLabel} × ${reps}`
+
+/** A cardio value with its unit, e.g. "8,5 km/h" or "Level 8". */
+export const metricText = (e: Exercise, value: number, t: T, lang: Lang) => {
+  const metric = cardioMetric(e)
+  if (!metric) return ''
+  const { unit } = METRIC_INFO[metric]
+  return unit ? `${fmt(value, lang)} ${unit}` : `${t(`metric_${metric}`)} ${fmt(value, lang)}`
+}
+
+/** One logged set as text: "60 kg × 10", or "30 min · 6 km/h" for cardio. */
+export const setLabel = (s: WorkoutSet, e: Exercise | undefined, t: T, lang: Lang) => {
+  if (isTimed(s)) {
+    const extra = e && s.value !== undefined ? metricText(e, s.value, t, lang) : ''
+    return `${fmt(s.minutes!, lang)} min${extra ? ` · ${extra}` : ''}`
+  }
+  return setText(s.weight, s.reps, lang, e && isBodyweight(e) ? t('bodyweightShort') : '0 kg')
+}
 
 export const STEP_OPTIONS = [0.5, 1, 1.25, 2, 2.5, 4, 5, 7.5, 10]
 export const fmt = (n: number, lang: Lang) => (lang === 'de' ? String(round(n)).replace('.', ',') : String(round(n)))
