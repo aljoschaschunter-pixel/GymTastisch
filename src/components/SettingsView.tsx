@@ -2,6 +2,7 @@ import { exportBackup, importBackup } from '../backup'
 import { beep, unlockAudio } from '../device'
 import { useI18n } from '../i18n'
 import { useSettings, type Settings } from '../settings'
+import { reloadApp } from '../update'
 import { mmss } from './ExercisesView'
 import { Icon } from './Icon'
 import { fmt, STEP_OPTIONS } from './ui'
@@ -195,17 +196,4 @@ export function SettingsView() {
       </p>
     </div>
   )
-}
-
-/** Fetch the latest version: drop the offline copy and load the app again. Workout data is kept. */
-async function reloadApp() {
-  try {
-    const regs = (await navigator.serviceWorker?.getRegistrations()) ?? []
-    await Promise.all(regs.map((r) => r.unregister()))
-    const keys = (await window.caches?.keys()) ?? []
-    await Promise.all(keys.map((k) => caches.delete(k)))
-  } catch {
-    // reload anyway
-  }
-  location.reload()
 }
