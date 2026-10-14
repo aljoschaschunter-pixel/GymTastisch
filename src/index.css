@@ -1712,35 +1712,46 @@ select {
 .mm-muscle {
   stroke: var(--surface);
   stroke-width: 0.6;
-  transition: fill 0.2s, fill-opacity 0.2s;
+  transition: fill 0.2s;
 }
 
+/* Not trained: grey. A little: orange, so gaps stand out. Solid and a lot: two clearly separate greens. */
 .mm-l0 {
-  fill: var(--surface-3);
-}
-
-.mm-l1,
-.mm-l2,
-.mm-l3 {
-  fill: var(--accent);
+  --mm: var(--surface-3);
 }
 
 .mm-l1 {
-  fill-opacity: 0.38;
-  background: color-mix(in srgb, var(--accent) 38%, var(--surface));
+  --mm: #ff9f43;
 }
 
 .mm-l2 {
-  fill-opacity: 0.62;
-  background: color-mix(in srgb, var(--accent) 62%, var(--surface));
+  --mm: #6f9a1c;
 }
 
 .mm-l3 {
-  background: var(--accent);
+  --mm: var(--accent);
 }
 
-.mm-l0.mm-swatch {
-  background: var(--surface-3);
+@media (prefers-color-scheme: light) {
+  .mm-l1 {
+    --mm: #f08a24;
+  }
+
+  .mm-l2 {
+    --mm: #b5dc4a;
+  }
+
+  .mm-l3 {
+    --mm: #5f8f00;
+  }
+}
+
+.mm-muscle {
+  fill: var(--mm);
+}
+
+.mm-swatch {
+  background: var(--mm);
 }
 
 .mm-legend {

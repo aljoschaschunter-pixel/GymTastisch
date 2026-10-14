@@ -351,13 +351,13 @@ function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
             <i className="mm-swatch mm-l0" /> 0
           </span>
           <span>
-            <i className="mm-swatch mm-l1" /> {t('levelLow')}
+            <i className="mm-swatch mm-l1" /> 1–3
           </span>
           <span>
-            <i className="mm-swatch mm-l2" /> {t('levelMid')}
+            <i className="mm-swatch mm-l2" /> 4–7
           </span>
           <span>
-            <i className="mm-swatch mm-l3" /> {t('levelHigh')}
+            <i className="mm-swatch mm-l3" /> 8+
           </span>
         </div>
         {rows.map((g) => (
@@ -365,7 +365,10 @@ function MuscleCard({ stats }: { stats: Map<MuscleGroup, GroupStat> }) {
             <span className="hbar-label">{t(`group_${g}` as Key)}</span>
             {count(g) ? (
               <span className="hbar-track">
-                <span className="hbar" style={{ width: `${(count(g) / max) * 100}%` }} />
+                <span
+                  className={`hbar mm-l${levelFor(count(g), days)}`}
+                  style={{ width: `${(count(g) / max) * 100}%`, background: 'var(--mm)' }}
+                />
               </span>
             ) : (
               <span className="muted small">{ago(stats.get(g)!.last)}</span>
