@@ -5,6 +5,7 @@ import { Icon, type IconName } from './components/Icon'
 import { loadRest, RestContext, RestTimerBar, saveRest, type RestState } from './components/RestTimer'
 import { SettingsView } from './components/SettingsView'
 import { StatsView } from './components/StatsView'
+import { UpdateBanner } from './components/UpdateBanner'
 import { WorkoutView } from './components/WorkoutView'
 import { requestPersistence } from './db'
 import { detectLang, I18nContext, makeT, type Key, type Lang } from './i18n'
@@ -87,6 +88,7 @@ export default function App() {
       <SettingsContext.Provider value={settingsCtx}>
         <RestContext.Provider value={restCtx}>
           <NavContext.Provider value={nav}>
+            <UpdateBanner />
             <main className={rest ? 'with-rest' : ''}>
               {ready && (
                 <>
