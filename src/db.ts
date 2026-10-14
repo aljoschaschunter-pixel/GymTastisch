@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { CardioMetric } from './cardio'
 
 export type MuscleGroup =
   | 'chest'
@@ -38,6 +39,8 @@ export interface Exercise {
   weightStep?: number
   /** Done with body weight; logged weight is extra load. Built-ins have a default. */
   bodyweight?: boolean
+  /** Cardio only: the value logged next to the time; 'none' logs time only. */
+  cardioMetric?: CardioMetric | 'none'
   archived?: boolean
   createdAt: number
 }
@@ -75,6 +78,10 @@ export interface WorkoutSet {
   exerciseId: string
   weight: number
   reps: number
+  /** Cardio: duration in minutes (weight and reps are then 0). */
+  minutes?: number
+  /** Cardio: the exercise's second value, e.g. speed or incline (see cardio.ts). */
+  value?: number
   createdAt: number
 }
 

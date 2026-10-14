@@ -5,13 +5,14 @@ import { useI18n, type Key } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
 import { useSettings } from '../settings'
+import { CARDIO_METRICS, cardioMetric, isCardio, METRIC_INFO, type CardioMetric } from '../cardio'
 import { Chart } from './Chart'
 import { CategoryFilter, groupByMuscle, SearchField, useExerciseList, type Category } from './ExercisePicker'
 import { Icon } from './Icon'
 import { TipsCard } from './Tips'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
-import { ExerciseThumb, fmt, Photo, setText, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
+import { ExerciseThumb, fmt, Photo, setLabel, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
 
 export function ExercisesView() {
   const { t } = useI18n()
@@ -83,6 +84,7 @@ export function ExerciseForm({
   const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
   const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
   const [bodyweight, setBodyweight] = useState(exercise ? isBodyweight(exercise) : false)
+  const [metric, setMetric] = useState<CardioMetric | 'none'>((exercise && cardioMetric(exercise)) ?? 'none')
   const defaultStep = stepFor(
     { ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined },
     settings.weightStep,
@@ -102,6 +104,7 @@ export function ExerciseForm({
       workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
       weightStep,
       bodyweight,
+      cardioMetric: group === 'cardio' ? metric : exercise?.cardioMetric,
     }
     if (exercise) {
       await db.exercises.update(exercise.id, data)
@@ -179,7 +182,20 @@ export function ExerciseForm({
             onChange={(e) => setNotes(e.target.value)}
           />
         </label>
-        {group !== 'cardio' && (
+        {group === 'cardio' ? (
+          <label>
+            {t('cardioMetricLabel')}
+            <select value={metric} onChange={(e) => setMetric(e.target.value as CardioMetric | 'none')}>
+              {CARDIO_METRICS.map((m) => (
+                <option key={m} value={m}>
+                  {t(`metric_${m}`)}
+                  {METRIC_INFO[m].unit && ` (${METRIC_INFO[m].unit})`}
+                </option>
+              ))}
+              <option value="none">{t('metric_none')}</option>
+            </select>
+          </label>
+        ) : (
           <>
             <label className="switch-row">
               <span className="grow">
@@ -218,22 +234,24 @@ export function ExerciseForm({
             </label>
           </>
         )}
-        <label>
-          {t('restTime')}
-          <select
-            value={restSeconds ?? ''}
-            onChange={(e) => setRestSeconds(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">
-              {t('restDefault')} ({mmss(settings.defaultRest)})
-            </option>
-            {REST_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {mmss(s)}
+        {group !== 'cardio' && (
+          <label>
+            {t('restTime')}
+            <select
+              value={restSeconds ?? ''}
+              onChange={(e) => setRestSeconds(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              <option value="">
+                {t('restDefault')} ({mmss(settings.defaultRest)})
               </option>
-            ))}
-          </select>
-        </label>
+              {REST_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {mmss(s)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button className="btn primary full" disabled={!canSave}>
           {t('save')}
         </button>
@@ -256,6 +274,9 @@ interface Session {
   top: number
   e1rm: number
   volume: number
+  /** Cardio: minutes in this session and the highest second value. */
+  minutes: number
+  value: number
 }
 
 export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void }) {
@@ -265,17 +286,21 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
   const [editing, setEditing] = useState(false)
   const [editSet, setEditSet] = useState<WorkoutSet>()
   const [metric, setMetric] = useState<'e1rm' | 'top' | 'volume'>('e1rm')
+  const [cardioChart, setCardioChart] = useState<'minutes' | 'value'>('minutes')
 
   const sessions = useMemo<Session[]>(() => {
     const map = new Map<string, Session>()
     for (const s of sets ?? []) {
       let x = map.get(s.workoutId)
       if (!x)
-        map.set(s.workoutId, (x = { workoutId: s.workoutId, date: s.createdAt, sets: [], top: 0, e1rm: 0, volume: 0 }))
+        map.set(s.workoutId, (x = { workoutId: s.workoutId, date: s.createdAt, sets: [], top: 0, e1rm: 0, volume: 0, minutes: 0, value: 0 }),
+        )
       x.sets.push(s)
       x.top = Math.max(x.top, s.weight)
       x.e1rm = Math.max(x.e1rm, estimate1RM(s.weight, s.reps))
       x.volume += s.weight * s.reps
+      x.minutes += s.minutes ?? 0
+      x.value = Math.max(x.value, s.value ?? 0)
     }
     return [...map.values()]
   }, [sets])
@@ -284,8 +309,26 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
 
   const best = sessions.reduce((m, s) => Math.max(m, s.e1rm), 0)
   const top = sessions.reduce((m, s) => Math.max(m, s.top), 0)
+  const cardio = isCardio(exercise)
+  const cMetric = cardioMetric(exercise)
   const locale = lang === 'de' ? 'de-DE' : 'en-GB'
   const shortDate = (d: number) => new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+  const history = (
+    <ul className="history-list">
+      {[...sessions].reverse().map((s) => (
+        <li key={s.workoutId}>
+          <strong>{shortDate(s.date)}</strong>
+          <span className="set-chips">
+            {s.sets.map((x) => (
+              <button key={x.id} className="chip" onClick={() => setEditSet(x)}>
+                {setLabel(x, exercise, t, lang)}
+              </button>
+            ))}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
 
   return (
     <div className="page detail">
@@ -308,6 +351,39 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
       <h2>{t('progress')}</h2>
       {!sessions.length ? (
         <p className="muted">{t('noHistory')}</p>
+      ) : cardio ? (
+        <>
+          <div className="stats">
+            <div>
+              <span className="stat-value">{fmt(sessions.reduce((m, s) => m + s.minutes, 0), lang)}</span>
+              <span className="muted small">{t('totalMinutes')}</span>
+            </div>
+            <div>
+              <span className="stat-value">{fmt(sessions.reduce((m, s) => Math.max(m, s.minutes), 0), lang)}</span>
+              <span className="muted small">{t('longestSession')}</span>
+            </div>
+            <div>
+              <span className="stat-value">{sessions.length}</span>
+              <span className="muted small">{t('sessions')}</span>
+            </div>
+          </div>
+          {cMetric && (
+            <div className="segmented">
+              {(['minutes', 'value'] as const).map((m) => (
+                <button key={m} className={cardioChart === m ? 'active' : ''} onClick={() => setCardioChart(m)}>
+                  {m === 'minutes' ? t('duration') : t(`metric_${cMetric}`)}
+                </button>
+              ))}
+            </div>
+          )}
+          <Chart
+            points={sessions
+              .filter((s) => (cMetric && cardioChart === 'value' ? s.value > 0 : s.minutes > 0))
+              .map((s) => ({ x: s.date, y: cMetric && cardioChart === 'value' ? s.value : s.minutes, label: shortDate(s.date) }))}
+            format={(v) => fmt(Math.round(v * 10) / 10, lang)}
+          />
+          {history}
+        </>
       ) : (
         <>
           <div className="stats">
@@ -335,20 +411,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
             points={sessions.map((s) => ({ x: s.date, y: s[metric], label: shortDate(s.date) }))}
             format={(v) => fmt(Math.round(v), lang)}
           />
-          <ul className="history-list">
-            {[...sessions].reverse().map((s) => (
-              <li key={s.workoutId}>
-                <strong>{shortDate(s.date)}</strong>
-                <span className="set-chips">
-                  {s.sets.map((x) => (
-                    <button key={x.id} className="chip" onClick={() => setEditSet(x)}>
-                      {setText(x.weight, x.reps, lang, isBodyweight(exercise) ? t('bodyweightShort') : '0 kg')}
-                    </button>
-                  ))}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {history}
         </>
       )}
       {editing && <ExerciseForm exercise={exercise} onClose={() => setEditing(false)} />}
