@@ -1,6 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
-import { activeWorkout, db, estimate1RM, lastSessionSets, uid, type Exercise, type Workout, type WorkoutSet } from '../db'
+import {
+  activeWorkout,
+  db,
+  estimate1RM,
+  lastSessionSets,
+  uid,
+  workoutNow,
+  type Exercise,
+  type Workout,
+  type WorkoutSet,
+} from '../db'
 import { setKeepAwake, unlockAudio } from '../device'
 import { useI18n } from '../i18n'
 import { useNav } from '../nav'
@@ -39,7 +49,7 @@ export function WorkoutView() {
   useEffect(() => {
     if (workout && !workout.exerciseIds.length && autoOpened.current !== workout.id) {
       autoOpened.current = workout.id
-      if (Date.now() - workout.startedAt < 5000) setPicking(true)
+      if (Date.now() - (workout.trackedAt ?? workout.startedAt) < 5000) setPicking(true)
     }
   }, [workout])
 
@@ -77,7 +87,18 @@ export function WorkoutView() {
       await db.workouts.delete(workout.id)
     } else {
       if (!confirm(t('finishConfirm'))) return
-      await db.workouts.update(workout.id, { endedAt: Date.now() })
+      await db.transaction('rw', db.workouts, async () => {
+        await db.workouts.update(workout.id, { endedAt: workoutNow(workout) })
+        // One workout per day: it replaces an entry logged for the same day.
+        const day = new Date(workout.startedAt)
+        const from = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime()
+        const to = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime()
+        await db.workouts
+          .where('startedAt')
+          .between(from, to)
+          .filter((w) => !!w.logged)
+          .delete()
+      })
       setSummaryId(workout.id)
       window.scrollTo(0, 0)
     }
@@ -97,7 +118,7 @@ export function WorkoutView() {
     <div className="page">
       <header className="page-head workout-head">
         <div className="min0">
-          <Elapsed since={workout.startedAt} />
+          {workout.trackedAt ? <DayLabel date={workout.startedAt} /> : <Elapsed since={workout.startedAt} />}
           <h1 className="clamp">{plan?.name ?? t('freeWorkout')}</h1>
         </div>
         <button className="btn primary small" onClick={finish}>
@@ -141,6 +162,16 @@ export function WorkoutView() {
         </Sheet>
       )}
     </div>
+  )
+}
+
+function DayLabel({ date }: { date: number }) {
+  const { lang } = useI18n()
+  return (
+    <span className="eyebrow">
+      <Icon name="calendar" size={14} />{' '}
+      {new Date(date).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+    </span>
   )
 }
 
@@ -207,7 +238,9 @@ function ExerciseFocus({ workout, exerciseId, onBack }: { workout: Workout; exer
     () => db.sets.where({ workoutId: workout.id, exerciseId }).sortBy('createdAt'),
     [workout.id, exerciseId],
   )
-  const previous = useLiveQuery(() => lastSessionSets(exerciseId, workout.id), [exerciseId, workout.id])
+  // For an earlier day, compare with the session before that day.
+  const before = workout.trackedAt ? workout.startedAt : undefined
+  const previous = useLiveQuery(() => lastSessionSets(exerciseId, workout.id, before), [exerciseId, workout.id, before])
 
   const [weight, setWeight] = useState<number>()
   const [reps, setReps] = useState<number>()
@@ -242,10 +275,19 @@ function ExerciseFocus({ workout, exerciseId, onBack }: { workout: Workout; exer
     unlockAudio()
     const best = await bestEstimate(exerciseId)
     const isFirst = sets.length === 0
-    await db.sets.add({ id: uid(), workoutId: workout.id, exerciseId, weight, reps, createdAt: Date.now() })
-    rest.start(exercise.restSeconds ?? settings.defaultRest)
+    const createdAt = workoutNow(workout)
+    await db.sets.add({ id: uid(), workoutId: workout.id, exerciseId, weight, reps, createdAt })
+    if (!workout.trackedAt) rest.start(exercise.restSeconds ?? settings.defaultRest)
     setEditingWeight(false)
-    if (isFirst && progression) {
+    // A workout for an earlier day only sets next time's weight if nothing newer was logged since.
+    const newer = workout.trackedAt
+      ? await db.sets
+          .where('[exerciseId+createdAt]')
+          .between([exerciseId, createdAt], [exerciseId, Infinity], false)
+          .filter((s) => s.workoutId !== workout.id)
+          .count()
+      : 0
+    if (isFirst && progression && !newer) {
       // Only the first set decides the weight for next time.
       const verdict = judgeFirstSet(reps, settings.repMin, settings.repMax)
       await db.exercises.update(exerciseId, { workingWeight: weight })

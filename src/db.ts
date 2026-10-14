@@ -52,6 +52,8 @@ export interface Workout {
   planId?: string
   /** Logged afterwards without sets, so it counts for the weekly goal and streak. */
   logged?: boolean
+  /** Real time a workout for an earlier day was opened; its clock then runs from `startedAt`. */
+  trackedAt?: number
   note?: string
 }
 
@@ -148,16 +150,23 @@ export const uid = () =>
 export const estimate1RM = (weight: number, reps: number) =>
   reps <= 1 ? weight : weight * (1 + reps / 30)
 
+/** Current time on a workout's clock. A workout for an earlier day runs from its start, within that day. */
+export function workoutNow(w: Workout) {
+  if (!w.trackedAt) return Date.now()
+  const endOfDay = new Date(w.startedAt).setHours(23, 59, 0, 0)
+  return Math.min(endOfDay, w.startedAt + (Date.now() - w.trackedAt))
+}
+
 export async function activeWorkout() {
   const open = await db.workouts.filter((w) => !w.endedAt).toArray()
   return open.sort((a, b) => b.startedAt - a.startedAt)[0]
 }
 
-/** Sets of the most recent finished-or-other workout that included this exercise. */
-export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string) {
+/** Sets of the most recent other workout that included this exercise, optionally only before `before`. */
+export async function lastSessionSets(exerciseId: string, excludeWorkoutId?: string, before?: number) {
   const sets = await db.sets
     .where('[exerciseId+createdAt]')
-    .between([exerciseId, Dexie.minKey], [exerciseId, Dexie.maxKey])
+    .between([exerciseId, Dexie.minKey], [exerciseId, before ?? Dexie.maxKey])
     .reverse()
     .toArray()
   const prev = sets.find((s) => s.workoutId !== excludeWorkoutId)
