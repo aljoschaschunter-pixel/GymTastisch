@@ -441,7 +441,7 @@ function PlanEditor({ plan, count, onClose }: { plan?: Plan; count: number; onCl
   }
 
   return (
-    <Sheet title={plan ? t('editDay') : t('newDay')} onClose={onClose}>
+    <Sheet title={plan ? t('editDay') : t('newDay')} onClose={onClose} full>
       <div className="form">
         <label>
           {t('dayName')}
@@ -519,7 +519,7 @@ function PlanEditor({ plan, count, onClose }: { plan?: Plan; count: number; onCl
         )}
       </div>
       {picking && (
-        <Sheet title={t('addExercise')} onClose={() => setPicking(false)}>
+        <Sheet title={t('addExercise')} onClose={() => setPicking(false)} full>
           <ExercisePicker
             selected={ids}
             onPick={(id) => {

@@ -1031,6 +1031,18 @@ main.with-rest {
   box-shadow: var(--shadow);
 }
 
+.sheet-backdrop.full .sheet {
+  height: 100dvh;
+  max-height: none;
+  max-width: none;
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top);
+}
+
+.sheet-backdrop.full .sheet-body {
+  flex: 1;
+}
+
 .sheet-head {
   display: flex;
   align-items: center;
