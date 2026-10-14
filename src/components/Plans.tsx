@@ -310,10 +310,30 @@ function LogPastSheet({
     </li>
   )
 
+  // Open a finished workout again to change it; its clock continues where it ended.
+  const reopen = async (w: Workout) => {
+    const trackedAt = isToday && !w.trackedAt ? undefined : Date.now() - ((w.endedAt ?? w.startedAt) - w.startedAt)
+    await db.workouts.update(w.id, { endedAt: undefined, trackedAt })
+    onClose()
+  }
+
   if (tracked.length > 0)
     return (
       <Sheet title={t('logPastTitle', { day: label })} onClose={onClose}>
         <p className="muted small">{t('dayTracked')}</p>
+        <ul className="list">
+          {tracked.map((w) => (
+            <li key={w.id}>
+              <button className="list-item" onClick={() => void reopen(w)}>
+                <span className="play-dot">
+                  <Icon name="check" size={16} />
+                </span>
+                <span className="grow">{plans.find((p) => p.id === w.planId)?.name ?? t('freeWorkout')}</span>
+                <span className="muted small">{t('editWorkout')}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </Sheet>
     )
 

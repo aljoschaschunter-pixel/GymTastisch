@@ -83,7 +83,8 @@ export function WorkoutView() {
 
   const finish = async () => {
     const count = await db.sets.where('workoutId').equals(workout.id).count()
-    if (!count) {
+    // Nothing added at all: drop it. Exercises without sets are kept so weights can be added later.
+    if (!count && !workout.exerciseIds.length) {
       await db.workouts.delete(workout.id)
     } else {
       if (!confirm(t('finishConfirm'))) return
@@ -99,7 +100,7 @@ export function WorkoutView() {
           .filter((w) => !!w.logged)
           .delete()
       })
-      setSummaryId(workout.id)
+      if (count) setSummaryId(workout.id)
       window.scrollTo(0, 0)
     }
     stop()
