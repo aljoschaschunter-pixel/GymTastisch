@@ -1,4 +1,5 @@
 import type { Exercise } from './db'
+import { DEFAULT_LB_STEP, fromUnit, stepAbove, stepBelow, toUnit, unitFor } from './units'
 
 export type Verdict = 'up' | 'down' | 'keep'
 
@@ -33,9 +34,15 @@ const BODYWEIGHT = new Set([
 
 export const isBodyweight = (e: Exercise) => e.bodyweight ?? (!!e.builtin && BODYWEIGHT.has(e.builtin))
 
-/** Smallest weight change for this exercise: its own setting, else 5 kg for big lower-body lifts, else the global default. */
+/**
+ * Smallest weight change for this exercise, in its own unit: 10 lb (or its own
+ * setting) for pound stacks, else its kg setting, 5 kg for big lower-body lifts,
+ * or the global default.
+ */
 export const stepFor = (e: Exercise, defaultStep: number) =>
-  e.weightStep ?? (e.builtin && HEAVY_LOWER.has(e.builtin) ? 5 : defaultStep)
+  unitFor(e) === 'lb'
+    ? (e.weightStepLb ?? DEFAULT_LB_STEP)
+    : (e.weightStep ?? (e.builtin && HEAVY_LOWER.has(e.builtin) ? 5 : defaultStep))
 
 /**
  * Change the load by about 5 %, within the commonly recommended 2–10 %
@@ -50,3 +57,16 @@ export function suggestedWeight(weight: number, verdict: Verdict, step: number) 
 
 /** Cardio machines don't use weights, so they skip progression. */
 export const usesProgression = (e: Exercise) => e.group !== 'cardio'
+
+/**
+ * Weight for next time in kg. Pound stacks move exactly one step on the stack
+ * to the next stack position (20 → 30 lb, 35 → 40 lb); kg exercises
+ * change by about 5 %.
+ */
+export function nextWeight(e: Exercise, kg: number, verdict: Verdict, defaultStep: number) {
+  const step = stepFor(e, defaultStep)
+  if (unitFor(e) === 'kg') return suggestedWeight(kg, verdict, step)
+  if (verdict === 'keep' || step <= 0) return kg
+  const lb = toUnit(kg, 'lb')
+  return fromUnit(Math.max(0, verdict === 'up' ? stepAbove(lb, step) : stepBelow(lb, step)), 'lb')
+}

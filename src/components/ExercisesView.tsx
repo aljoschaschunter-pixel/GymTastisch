@@ -12,6 +12,7 @@ import { Icon } from './Icon'
 import { TipsCard } from './Tips'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
+import { fromUnit, LB_STEP_OPTIONS, toUnit, unitFor, type WeightUnit } from '../units'
 import { ExerciseThumb, fmt, Photo, setLabel, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
 
 export function ExercisesView() {
@@ -81,28 +82,42 @@ export function ExerciseForm({
   const [notes, setNotes] = useState(exercise?.notes ?? '')
   const [photo, setPhoto] = useState<Blob | undefined>(exercise?.photo)
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
-  const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
+  const [unit, setUnit] = useState<WeightUnit>(exercise ? unitFor(exercise) : 'kg')
+  const [workingWeight, setWorkingWeight] = useState(
+    exercise?.workingWeight !== undefined ? fmt(toUnit(exercise.workingWeight, unit), lang) : '',
+  )
   const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
+  const [weightStepLb, setWeightStepLb] = useState<number | undefined>(exercise?.weightStepLb)
   const [bodyweight, setBodyweight] = useState(exercise ? isBodyweight(exercise) : false)
   const [metric, setMetric] = useState<CardioMetric | 'none'>((exercise && cardioMetric(exercise)) ?? 'none')
   const defaultStep = stepFor(
-    { ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined },
+    { ...(exercise ?? { id: '', group, createdAt: 0 }), unit, weightStep: undefined, weightStepLb: undefined },
     settings.weightStep,
   )
+  const parseWeight = (text: string) => parseFloat(text.replace(',', '.'))
+
+  // Keep the typed working weight the same load when switching units.
+  const changeUnit = (next: WeightUnit) => {
+    const v = parseWeight(workingWeight)
+    if (Number.isFinite(v)) setWorkingWeight(fmt(toUnit(fromUnit(v, unit), next), lang))
+    setUnit(next)
+  }
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
   const save = async () => {
     if (!canSave) return
-    const ww = parseFloat(workingWeight.replace(',', '.'))
+    const ww = parseWeight(workingWeight)
     const data = {
       name: name.trim() || undefined,
       group,
       notes: notes.trim() || undefined,
       photo,
       restSeconds,
-      workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
+      workingWeight: Number.isFinite(ww) && ww >= 0 ? fromUnit(ww, unit) : undefined,
       weightStep,
+      weightStepLb,
+      unit,
       bodyweight,
       cardioMetric: group === 'cardio' ? metric : exercise?.cardioMetric,
     }
@@ -209,8 +224,19 @@ export function ExerciseForm({
                 onChange={(e) => setBodyweight(e.target.checked)}
               />
             </label>
+            <div className="field">
+              <span>{t('weightUnit')}</span>
+              <div className="segmented">
+                {(['kg', 'lb'] as const).map((u) => (
+                  <button key={u} type="button" className={unit === u ? 'active' : ''} onClick={() => changeUnit(u)}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+              <small className="muted">{t('weightUnitHint')}</small>
+            </div>
             <label>
-              {t(bodyweight ? 'addedWeight' : 'workingWeight')} (kg)
+              {t(bodyweight ? 'addedWeight' : 'workingWeight')} ({unit})
               <input
                 inputMode="decimal"
                 value={workingWeight}
@@ -221,13 +247,17 @@ export function ExerciseForm({
             <label>
               {t('exWeightStep')}
               <select
-                value={weightStep ?? ''}
-                onChange={(e) => setWeightStep(e.target.value ? Number(e.target.value) : undefined)}
+                value={(unit === 'lb' ? weightStepLb : weightStep) ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value ? Number(e.target.value) : undefined
+                  if (unit === 'lb') setWeightStepLb(v)
+                  else setWeightStep(v)
+                }}
               >
-                <option value="">{t('stepDefault', { step: fmt(defaultStep, lang) })}</option>
-                {STEP_OPTIONS.map((s) => (
+                <option value="">{t('stepDefault', { step: `${fmt(defaultStep, lang)} ${unit}` })}</option>
+                {(unit === 'lb' ? LB_STEP_OPTIONS : STEP_OPTIONS).map((s) => (
                   <option key={s} value={s}>
-                    {fmt(s, lang)} kg
+                    {fmt(s, lang)} {unit}
                   </option>
                 ))}
               </select>
@@ -307,6 +337,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
 
   if (!exercise || !sets) return null
 
+  const unit = unitFor(exercise)
   const best = sessions.reduce((m, s) => Math.max(m, s.e1rm), 0)
   const top = sessions.reduce((m, s) => Math.max(m, s.top), 0)
   const cardio = isCardio(exercise)
@@ -388,12 +419,12 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
         <>
           <div className="stats">
             <div>
-              <span className="stat-value">{fmt(Math.round(best * 10) / 10, lang)}</span>
-              <span className="muted small">{t('est1rm')} (kg)</span>
+              <span className="stat-value">{fmt(Math.round(toUnit(best, unit) * 10) / 10, lang)}</span>
+              <span className="muted small">{t('est1rm')} ({unit})</span>
             </div>
             <div>
-              <span className="stat-value">{fmt(top, lang)}</span>
-              <span className="muted small">{t('topWeight')} (kg)</span>
+              <span className="stat-value">{fmt(toUnit(top, unit), lang)}</span>
+              <span className="muted small">{t('topWeight')} ({unit})</span>
             </div>
             <div>
               <span className="stat-value">{sessions.length}</span>
@@ -408,7 +439,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
             ))}
           </div>
           <Chart
-            points={sessions.map((s) => ({ x: s.date, y: s[metric], label: shortDate(s.date) }))}
+            points={sessions.map((s) => ({ x: s.date, y: toUnit(s[metric], unit), label: shortDate(s.date) }))}
             format={(v) => fmt(Math.round(v), lang)}
           />
           {history}

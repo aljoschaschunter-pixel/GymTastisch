@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { CardioMetric } from './cardio'
+import type { WeightUnit } from './units'
 
 export type MuscleGroup =
   | 'chest'
@@ -35,8 +36,12 @@ export interface Exercise {
   restSeconds?: number
   /** Weight for the first set next time (progressive overload). */
   workingWeight?: number
-  /** Smallest weight change in kg, e.g. the plate or stack increment of a machine. */
+  /** Smallest weight change in kg, e.g. the plate increment. */
   weightStep?: number
+  /** Unit the weight is shown and entered in; stored weights are always kg. Built-in machines default to lb. */
+  unit?: WeightUnit
+  /** Smallest weight change in lb when the exercise uses pounds, e.g. 10 lb on a weight stack. */
+  weightStepLb?: number
   /** Done with body weight; logged weight is extra load. Built-ins have a default. */
   bodyweight?: boolean
   /** Cardio only: the value logged next to the time; 'none' logs time only. */

@@ -15,7 +15,8 @@ import { setKeepAwake, unlockAudio } from '../device'
 import { useI18n } from '../i18n'
 import { useNav } from '../nav'
 import { exerciseName } from '../seed'
-import { isBodyweight, judgeFirstSet, stepFor, suggestedWeight, usesProgression, type Verdict } from '../progression'
+import { isBodyweight, judgeFirstSet, nextWeight, stepFor, usesProgression, type Verdict } from '../progression'
+import { formatWeight, fromUnit, offPoundGrid, snapToStep, toUnit, unitFor, type WeightUnit } from '../units'
 import { useSettings } from '../settings'
 import { ExercisePicker } from './ExercisePicker'
 import { Icon } from './Icon'
@@ -23,7 +24,7 @@ import { StartScreen } from './Plans'
 import { WorkoutComplete } from './Summary'
 import { useRest } from './RestTimer'
 import { TipsChip } from './Tips'
-import { ExerciseThumb, fmt, setLabel, setText, Sheet, Stepper } from './ui'
+import { ExerciseThumb, fmt, setLabel, setText, Sheet, Stepper, WeightStepper } from './ui'
 import { cardioMetric, DEFAULT_MINUTES, isCardio, isTimed, METRIC_INFO } from '../cardio'
 
 export function WorkoutView() {
@@ -203,15 +204,16 @@ function ExerciseRow({ workout, exerciseId, onOpen }: { workout: Workout; exerci
   const bw = isBodyweight(exercise)
   const weight = sets.at(-1)?.weight ?? exercise.workingWeight
   const cardio = isCardio(exercise)
+  const unit = unitFor(exercise)
   const weightText = cardio
     ? undefined
     : weight === undefined
       ? undefined
       : weight > 0
-        ? `${fmt(weight, lang)} kg`
+        ? formatWeight(weight, unit, lang)
         : bw
           ? t('bodyweightShort')
-          : '0 kg'
+          : `0 ${unit}`
   const done = sets.length > 0
 
   return (
@@ -305,8 +307,15 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
   // Weight: today's last set, else the saved working weight, else last time.
   useEffect(() => {
     if (!sets || !previous || !exercise || weight !== undefined) return
-    setWeight(sets.at(-1)?.weight ?? exercise.workingWeight ?? previous[0]?.weight ?? (isBodyweight(exercise) ? 0 : 20))
-  }, [sets, previous, exercise, weight])
+    const unit = unitFor(exercise)
+    const w = sets.at(-1)?.weight ?? exercise.workingWeight ?? previous[0]?.weight ?? (isBodyweight(exercise) ? 0 : 20)
+    // A kg weight from before the exercise used pounds goes to the nearest stack position.
+    setWeight(
+      unit === 'lb' && offPoundGrid(w)
+        ? fromUnit(snapToStep(toUnit(w, unit), stepFor(exercise, settings.weightStep)), unit)
+        : w,
+    )
+  }, [sets, previous, exercise, weight, settings.weightStep])
 
   // Reps: what you did in the same set last time, else today's last set, else the bottom of the range.
   const setIndex = sets?.length ?? 0
@@ -319,7 +328,8 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
   const progression = usesProgression(exercise)
   const step = stepFor(exercise, settings.weightStep)
   const bw = isBodyweight(exercise)
-  const label = (w: number, r: number) => setText(w, r, lang, bw ? t('bodyweightShort') : '0 kg')
+  const unit = unitFor(exercise)
+  const label = (w: number, r: number) => setText(w, r, lang, bw ? t('bodyweightShort') : `0 ${unit}`, unit)
   // First time ever: ask for the weight once, nothing else.
   const needsWeight = progression && !bw && exercise.workingWeight === undefined && !sets.length && !previous.length
 
@@ -343,7 +353,7 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
       // Only the first set decides the weight for next time.
       const verdict = judgeFirstSet(reps, settings.repMin, settings.repMax)
       await db.exercises.update(exerciseId, { workingWeight: weight })
-      setSuggestion({ verdict, reps, weight, next: suggestedWeight(weight, verdict, step) })
+      setSuggestion({ verdict, reps, weight, next: nextWeight(exercise, weight, verdict, settings.weightStep) })
     }
     if (best > 0 && weight > 0 && estimate1RM(weight, reps) > best) {
       setPr(true)
@@ -354,7 +364,7 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
       const msg = !prev
         ? undefined
         : weight > prev.weight
-          ? t('beatWeight', { kg: fmt(weight - prev.weight, lang) })
+          ? t('beatWeight', { kg: formatWeight(weight - prev.weight, unit, lang) })
           : weight === prev.weight && reps > prev.reps
             ? t('beatReps', { n: reps - prev.reps })
             : undefined
@@ -393,7 +403,7 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
         <section className="card focus-card">
           <h2 className="focus-q">{t('startWeightTitle')}</h2>
           <p className="muted small">{t('startWeightHint')}</p>
-          <Stepper label={`${t('weight')} (kg)`} value={weight} onChange={setWeight} step={step} />
+          <WeightStepper exercise={exercise} label={t('weight')} value={weight} onChange={setWeight} step={step} />
           <button
             className="btn primary full big"
             onClick={() => db.exercises.update(exerciseId, { workingWeight: weight })}
@@ -406,14 +416,21 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
           <div className="set-head">
             <h2 className="focus-q">{t('setN', { n: sets.length + 1 })}</h2>
             <button className="weight-pill" onClick={() => setEditingWeight(!editingWeight)}>
-              {weight > 0 ? `${fmt(weight, lang)} kg` : bw ? t('bodyweightShort') : '0 kg'}
+              {weight > 0 ? formatWeight(weight, unit, lang) : bw ? t('bodyweightShort') : `0 ${unit}`}
+              {unit === 'lb' && weight > 0 && <span className="weight-pill-alt">≈ {fmt(Math.round(weight * 10) / 10, lang)} kg</span>}
               <span className="weight-pill-action">
                 <Icon name="pencil" size={13} /> {t('change')}
               </span>
             </button>
           </div>
           {editingWeight && (
-            <Stepper label={`${t(bw ? 'addedWeight' : 'weight')} (kg)`} value={weight} onChange={setWeight} step={step} />
+            <WeightStepper
+              exercise={exercise}
+              label={t(bw ? 'addedWeight' : 'weight')}
+              value={weight}
+              onChange={setWeight}
+              step={step}
+            />
           )}
           <Stepper label={t('repsQuestion')} value={reps} onChange={setReps} step={1} />
           <button className="btn primary full big" onClick={saveSet}>
@@ -435,6 +452,7 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
               {...suggestion}
               step={step}
               bodyweight={bw}
+              exercise={exercise}
               onDone={async (next) => {
                 if (next !== undefined) await db.exercises.update(exerciseId, { workingWeight: next })
                 setSuggestion(undefined)
@@ -610,6 +628,7 @@ function ProgressionPrompt({
   next,
   step,
   bodyweight,
+  exercise,
   onDone,
 }: {
   verdict: Verdict
@@ -618,9 +637,12 @@ function ProgressionPrompt({
   next: number
   step: number
   bodyweight: boolean
+  exercise: Exercise
   onDone: (next?: number) => void
 }) {
   const { t, lang } = useI18n()
+  const unit: WeightUnit = unitFor(exercise)
+  const w = (kg: number) => formatWeight(kg, unit, lang)
   const [value, setValue] = useState(next)
   const done = useRef(onDone)
   done.current = onDone
@@ -638,7 +660,7 @@ function ProgressionPrompt({
       verdict === 'keep'
         ? bodyweight && weight === 0
           ? t('progKeepBw', { reps })
-          : t('progKeep', { reps, weight: fmt(weight, lang) })
+          : t('progKeep', { reps, weight: w(weight) })
         : t(verdict === 'up' ? 'bwUp' : 'bwDown', { reps })
     return (
       <button className={`prog prog-keep ${verdict === 'keep' ? '' : `prog-${verdict}`}`} onClick={() => onDone()}>
@@ -652,13 +674,13 @@ function ProgressionPrompt({
         <Icon name={verdict === 'up' ? 'trendUp' : 'trendDown'} size={18} />
         {t(verdict === 'up' ? 'progUp' : 'progDown', { reps })}
       </p>
-      <Stepper label={t('workingWeight')} value={value} onChange={setValue} step={step} />
+      <WeightStepper exercise={exercise} label={t('workingWeight')} value={value} onChange={setValue} step={step} />
       <div className="row">
         <button className="btn primary small grow" onClick={() => onDone(value)}>
-          {t('applyWeight', { weight: fmt(value, lang) })}
+          {t('applyWeight', { weight: w(value) })}
         </button>
         <button className="btn secondary small" onClick={() => onDone(weight)}>
-          {t('keepWeight', { weight: fmt(weight, lang) })}
+          {t('keepWeight', { weight: w(weight) })}
         </button>
       </div>
     </div>
@@ -695,8 +717,9 @@ export function EditSetSheet({ set, exercise, onClose }: { set: WorkoutSet; exer
         </div>
       ) : (
         <div className="entry">
-          <Stepper
-            label={`${t(exercise && isBodyweight(exercise) ? 'addedWeight' : 'weight')} (kg)`}
+          <WeightStepper
+            exercise={exercise}
+            label={t(exercise && isBodyweight(exercise) ? 'addedWeight' : 'weight')}
             value={weight}
             onChange={setWeight}
             step={exercise ? stepFor(exercise, settings.weightStep) : settings.weightStep}
