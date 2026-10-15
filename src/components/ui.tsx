@@ -4,6 +4,7 @@ import type { Exercise, WorkoutSet } from '../db'
 import { useI18n, type Lang, type T } from '../i18n'
 import { isBodyweight } from '../progression'
 import { builtinImage } from '../seed'
+import { formatWeight, shownKg, stepAbove, stepBelow, stepInKg, toPoundGrid, unitFor, type WeightUnit } from '../units'
 import { Icon } from './Icon'
 
 /** Bottom sheet; with `full` it covers the whole screen. */
@@ -58,12 +59,15 @@ export function Stepper({
   step,
   label,
   min = 0,
+  snap,
 }: {
   value: number
   onChange: (v: number) => void
   step: number
   label: string
   min?: number
+  /** − and + move to the next position on the step grid, like the pin on a weight stack. */
+  snap?: boolean
 }) {
   const { lang } = useI18n()
   const [text, setText] = useState(fmt(value, lang))
@@ -77,7 +81,7 @@ export function Stepper({
     <div className="stepper">
       <span className="stepper-label">{label}</span>
       <div className="stepper-row">
-        <button type="button" onClick={() => onChange(round(Math.max(min, value - step)))} aria-label={`${label} −`}>
+        <button type="button" onClick={() => onChange(round(Math.max(min, snap ? stepBelow(value, step) : value - step)))} aria-label={`${label} −`}>
           −
         </button>
         <input
@@ -88,7 +92,7 @@ export function Stepper({
           onFocus={(e) => e.target.select()}
           aria-label={label}
         />
-        <button type="button" onClick={() => onChange(round(value + step))} aria-label={`${label} +`}>
+        <button type="button" onClick={() => onChange(round(snap ? stepAbove(value, step) : value + step))} aria-label={`${label} +`}>
           +
         </button>
       </div>
@@ -96,11 +100,40 @@ export function Stepper({
   )
 }
 
+/**
+ * Weight entry in kg. For pound stacks, `step` is in lb and − / + move from pin
+ * to pin (10 lb ≈ 4.5 kg), while the field still shows kg.
+ */
+export function WeightStepper({
+  exercise,
+  value,
+  onChange,
+  step,
+  label,
+}: {
+  exercise?: Exercise
+  value: number
+  onChange: (kg: number) => void
+  step: number
+  label: string
+}) {
+  const unit = exercise ? unitFor(exercise) : 'kg'
+  return (
+    <Stepper
+      label={`${label} (kg)`}
+      value={shownKg(value, unit)}
+      onChange={(v) => onChange(unit === 'lb' ? toPoundGrid(v) : v)}
+      step={stepInKg(step, unit)}
+      snap={unit === 'lb'}
+    />
+  )
+}
+
 const round = (n: number) => Math.round(n * 100) / 100
 
 /** "60 kg × 10", or "Bodyweight × 12" when no extra weight was used. */
-export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string) =>
-  `${weight > 0 ? `${fmt(weight, lang)} kg` : bodyweightLabel} × ${reps}`
+export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string, unit: WeightUnit = 'kg') =>
+  `${weight > 0 ? formatWeight(weight, unit, lang) : bodyweightLabel} × ${reps}`
 
 /** A cardio value with its unit, e.g. "8,5 km/h" or "Level 8". */
 export const metricText = (e: Exercise, value: number, t: T, lang: Lang) => {
@@ -116,7 +149,8 @@ export const setLabel = (s: WorkoutSet, e: Exercise | undefined, t: T, lang: Lan
     const extra = e && s.value !== undefined ? metricText(e, s.value, t, lang) : ''
     return `${fmt(s.minutes!, lang)} min${extra ? ` · ${extra}` : ''}`
   }
-  return setText(s.weight, s.reps, lang, e && isBodyweight(e) ? t('bodyweightShort') : '0 kg')
+  const unit = e ? unitFor(e) : 'kg'
+  return setText(s.weight, s.reps, lang, e && isBodyweight(e) ? t('bodyweightShort') : '0 kg', unit)
 }
 
 export const STEP_OPTIONS = [0.5, 1, 1.25, 2, 2.5, 4, 5, 7.5, 10]

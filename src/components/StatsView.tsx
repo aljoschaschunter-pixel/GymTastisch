@@ -10,6 +10,7 @@ import { Chart } from './Chart'
 import { Icon } from './Icon'
 import { MuscleMap, type Level } from './MuscleMap'
 import { ExerciseThumb, fmt, Stepper } from './ui'
+import { formatWeight, unitFor } from '../units'
 
 const locale = (lang: Lang) => (lang === 'de' ? 'de-DE' : 'en-GB')
 
@@ -293,7 +294,7 @@ function TrainingStats() {
                   <span className="grow min0">
                     <span className="clamp block">{exerciseName(r.exercise, t)}</span>
                     <span className="muted small">
-                      {fmt(r.weight, lang)} kg × {r.reps} ·{' '}
+                      {formatWeight(r.weight, unitFor(r.exercise), lang)} × {r.reps} ·{' '}
                       {new Date(r.at).toLocaleDateString(locale(lang), { day: 'numeric', month: 'short' })}
                     </span>
                   </span>

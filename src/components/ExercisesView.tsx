@@ -12,6 +12,7 @@ import { Icon } from './Icon'
 import { TipsCard } from './Tips'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
+import { LB_STEP_OPTIONS, shownKg, toPoundGrid, unitFor, type WeightUnit } from '../units'
 import { ExerciseThumb, fmt, Photo, setLabel, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
 
 export function ExercisesView() {
@@ -81,14 +82,19 @@ export function ExerciseForm({
   const [notes, setNotes] = useState(exercise?.notes ?? '')
   const [photo, setPhoto] = useState<Blob | undefined>(exercise?.photo)
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
-  const [workingWeight, setWorkingWeight] = useState(exercise?.workingWeight?.toString() ?? '')
+  const [unit, setUnit] = useState<WeightUnit>(exercise ? unitFor(exercise) : 'kg')
+  const [workingWeight, setWorkingWeight] = useState(
+    exercise?.workingWeight !== undefined ? fmt(shownKg(exercise.workingWeight, unit), lang) : '',
+  )
   const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
+  const [weightStepLb, setWeightStepLb] = useState<number | undefined>(exercise?.weightStepLb)
   const [bodyweight, setBodyweight] = useState(exercise ? isBodyweight(exercise) : false)
   const [metric, setMetric] = useState<CardioMetric | 'none'>((exercise && cardioMetric(exercise)) ?? 'none')
   const defaultStep = stepFor(
-    { ...(exercise ?? { id: '', group, createdAt: 0 }), weightStep: undefined },
+    { ...(exercise ?? { id: '', group, createdAt: 0 }), unit, weightStep: undefined, weightStepLb: undefined },
     settings.weightStep,
   )
+
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
@@ -101,8 +107,10 @@ export function ExerciseForm({
       notes: notes.trim() || undefined,
       photo,
       restSeconds,
-      workingWeight: Number.isFinite(ww) && ww >= 0 ? ww : undefined,
+      workingWeight: Number.isFinite(ww) && ww >= 0 ? (unit === 'lb' ? toPoundGrid(ww) : ww) : undefined,
       weightStep,
+      weightStepLb,
+      unit,
       bodyweight,
       cardioMetric: group === 'cardio' ? metric : exercise?.cardioMetric,
     }
@@ -209,6 +217,17 @@ export function ExerciseForm({
                 onChange={(e) => setBodyweight(e.target.checked)}
               />
             </label>
+            <div className="field">
+              <span>{t('weightUnit')}</span>
+              <div className="segmented">
+                {(['kg', 'lb'] as const).map((u) => (
+                  <button key={u} type="button" className={unit === u ? 'active' : ''} onClick={() => setUnit(u)}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+              <small className="muted">{t('weightUnitHint')}</small>
+            </div>
             <label>
               {t(bodyweight ? 'addedWeight' : 'workingWeight')} (kg)
               <input
@@ -221,13 +240,17 @@ export function ExerciseForm({
             <label>
               {t('exWeightStep')}
               <select
-                value={weightStep ?? ''}
-                onChange={(e) => setWeightStep(e.target.value ? Number(e.target.value) : undefined)}
+                value={(unit === 'lb' ? weightStepLb : weightStep) ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value ? Number(e.target.value) : undefined
+                  if (unit === 'lb') setWeightStepLb(v)
+                  else setWeightStep(v)
+                }}
               >
-                <option value="">{t('stepDefault', { step: fmt(defaultStep, lang) })}</option>
-                {STEP_OPTIONS.map((s) => (
+                <option value="">{t('stepDefault', { step: `${fmt(defaultStep, lang)} ${unit}` })}</option>
+                {(unit === 'lb' ? LB_STEP_OPTIONS : STEP_OPTIONS).map((s) => (
                   <option key={s} value={s}>
-                    {fmt(s, lang)} kg
+                    {fmt(s, lang)} {unit}
                   </option>
                 ))}
               </select>
@@ -392,7 +415,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
               <span className="muted small">{t('est1rm')} (kg)</span>
             </div>
             <div>
-              <span className="stat-value">{fmt(top, lang)}</span>
+              <span className="stat-value">{fmt(Math.round(top * 10) / 10, lang)}</span>
               <span className="muted small">{t('topWeight')} (kg)</span>
             </div>
             <div>
