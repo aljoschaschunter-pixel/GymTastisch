@@ -213,7 +213,7 @@ function ExerciseRow({ workout, exerciseId, onOpen }: { workout: Workout; exerci
         ? formatWeight(weight, unit, lang)
         : bw
           ? t('bodyweightShort')
-          : `0 ${unit}`
+          : '0 kg'
   const done = sets.length > 0
 
   return (
@@ -329,7 +329,7 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
   const step = stepFor(exercise, settings.weightStep)
   const bw = isBodyweight(exercise)
   const unit = unitFor(exercise)
-  const label = (w: number, r: number) => setText(w, r, lang, bw ? t('bodyweightShort') : `0 ${unit}`, unit)
+  const label = (w: number, r: number) => setText(w, r, lang, bw ? t('bodyweightShort') : '0 kg', unit)
   // First time ever: ask for the weight once, nothing else.
   const needsWeight = progression && !bw && exercise.workingWeight === undefined && !sets.length && !previous.length
 
@@ -416,8 +416,10 @@ function StrengthFocus({ workout, exerciseId, onBack, exercise }: FocusProps & {
           <div className="set-head">
             <h2 className="focus-q">{t('setN', { n: sets.length + 1 })}</h2>
             <button className="weight-pill" onClick={() => setEditingWeight(!editingWeight)}>
-              {weight > 0 ? formatWeight(weight, unit, lang) : bw ? t('bodyweightShort') : `0 ${unit}`}
-              {unit === 'lb' && weight > 0 && <span className="weight-pill-alt">≈ {fmt(Math.round(weight * 10) / 10, lang)} kg</span>}
+              {weight > 0 ? formatWeight(weight, unit, lang) : bw ? t('bodyweightShort') : '0 kg'}
+              {unit === 'lb' && weight > 0 && (
+                <span className="weight-pill-alt">{fmt(toUnit(weight, unit), lang)} lb</span>
+              )}
               <span className="weight-pill-action">
                 <Icon name="pencil" size={13} /> {t('change')}
               </span>

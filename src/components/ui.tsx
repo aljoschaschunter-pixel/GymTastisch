@@ -4,7 +4,7 @@ import type { Exercise, WorkoutSet } from '../db'
 import { useI18n, type Lang, type T } from '../i18n'
 import { isBodyweight } from '../progression'
 import { builtinImage } from '../seed'
-import { formatWeight, fromUnit, stepAbove, stepBelow, toUnit, unitFor, type WeightUnit } from '../units'
+import { formatWeight, shownKg, stepAbove, stepBelow, stepInKg, toPoundGrid, unitFor, type WeightUnit } from '../units'
 import { Icon } from './Icon'
 
 /** Bottom sheet; with `full` it covers the whole screen. */
@@ -101,8 +101,8 @@ export function Stepper({
 }
 
 /**
- * Weight entry for an exercise: value and result are kg, while the field shows the
- * exercise's own unit. Pound stacks step from pin to pin (e.g. 20 → 30 lb).
+ * Weight entry in kg. For pound stacks, `step` is in lb and − / + move from pin
+ * to pin (10 lb ≈ 4.5 kg), while the field still shows kg.
  */
 export function WeightStepper({
   exercise,
@@ -120,10 +120,10 @@ export function WeightStepper({
   const unit = exercise ? unitFor(exercise) : 'kg'
   return (
     <Stepper
-      label={`${label} (${unit})`}
-      value={toUnit(value, unit)}
-      onChange={(v) => onChange(fromUnit(v, unit))}
-      step={step}
+      label={`${label} (kg)`}
+      value={shownKg(value, unit)}
+      onChange={(v) => onChange(unit === 'lb' ? toPoundGrid(v) : v)}
+      step={stepInKg(step, unit)}
       snap={unit === 'lb'}
     />
   )
@@ -131,7 +131,7 @@ export function WeightStepper({
 
 const round = (n: number) => Math.round(n * 100) / 100
 
-/** "60 kg × 10", "30 lb × 10", or "Bodyweight × 12" when no extra weight was used. */
+/** "60 kg × 10", or "Bodyweight × 12" when no extra weight was used. */
 export const setText = (weight: number, reps: number, lang: Lang, bodyweightLabel: string, unit: WeightUnit = 'kg') =>
   `${weight > 0 ? formatWeight(weight, unit, lang) : bodyweightLabel} × ${reps}`
 
@@ -150,7 +150,7 @@ export const setLabel = (s: WorkoutSet, e: Exercise | undefined, t: T, lang: Lan
     return `${fmt(s.minutes!, lang)} min${extra ? ` · ${extra}` : ''}`
   }
   const unit = e ? unitFor(e) : 'kg'
-  return setText(s.weight, s.reps, lang, e && isBodyweight(e) ? t('bodyweightShort') : `0 ${unit}`, unit)
+  return setText(s.weight, s.reps, lang, e && isBodyweight(e) ? t('bodyweightShort') : '0 kg', unit)
 }
 
 export const STEP_OPTIONS = [0.5, 1, 1.25, 2, 2.5, 4, 5, 7.5, 10]

@@ -30,7 +30,7 @@ const STACK_MACHINES = new Set([
   'ab_machine',
 ])
 
-/** The unit an exercise is shown in. Weights are always stored in kg. */
+/** The unit the exercise's weight steps follow. Weights are always stored and shown in kg. */
 export const unitFor = (e: Exercise): WeightUnit =>
   e.unit ?? (e.builtin && STACK_MACHINES.has(e.builtin) ? 'lb' : 'kg')
 
@@ -45,16 +45,29 @@ export const fromUnit = (value: number, unit: WeightUnit) => (unit === 'lb' ? va
 export const snapToStep = (value: number, step: number) =>
   step > 0 ? Math.round(Math.round(value / step) * step * 100) / 100 : value
 
-const EPS = 1e-6
+// Tolerates display rounding, e.g. 9.1 kg for 20 lb.
+const EPS = 0.02
 /** Next position on the step grid above the value: 20 → 30, 35 → 40 with 10 lb steps. */
 export const stepAbove = (value: number, step: number) => (Math.floor(value / step + EPS) + 1) * step
 /** Next position on the step grid below the value: 30 → 20, 35 → 30 with 10 lb steps. */
 export const stepBelow = (value: number, step: number) => Math.max(0, (Math.ceil(value / step - EPS) - 1) * step)
 
-/** Weight with its unit, e.g. "30 lb" or "60 kg". */
+/** Weight in kg as shown, e.g. "60 kg"; pound steps are shown to 0.1 kg ("13,6 kg" for 30 lb). */
+export const shownKg = (kg: number, unit: WeightUnit) =>
+  unit === 'lb' ? Math.round(kg * 10) / 10 : Math.round(kg * 100) / 100
+
 export const formatWeight = (kg: number, unit: WeightUnit, lang: 'de' | 'en') => {
-  const n = String(Math.round(toUnit(kg, unit) * 100) / 100)
-  return `${lang === 'de' ? n.replace('.', ',') : n} ${unit}`
+  const n = String(shownKg(kg, unit))
+  return `${lang === 'de' ? n.replace('.', ',') : n} kg`
+}
+
+/** Step size in kg, e.g. 10 lb ≈ 4.54 kg. */
+export const stepInKg = (step: number, unit: WeightUnit) => fromUnit(step, unit)
+
+/** A kg value close to a whole pound (from rounding) becomes that exact pound weight. */
+export const toPoundGrid = (kg: number) => {
+  const lb = kg / KG_PER_LB
+  return Math.abs(lb - Math.round(lb)) < 0.15 ? Math.round(lb) * KG_PER_LB : kg
 }
 
 /** True when a stored kg value doesn't sit on a 2.5 lb grid, i.e. it was entered in kg. */

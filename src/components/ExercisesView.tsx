@@ -12,7 +12,7 @@ import { Icon } from './Icon'
 import { TipsCard } from './Tips'
 import { EditSetSheet } from './WorkoutView'
 import { isBodyweight, stepFor } from '../progression'
-import { fromUnit, LB_STEP_OPTIONS, toUnit, unitFor, type WeightUnit } from '../units'
+import { LB_STEP_OPTIONS, shownKg, toPoundGrid, unitFor, type WeightUnit } from '../units'
 import { ExerciseThumb, fmt, Photo, setLabel, Sheet, shrinkImage, STEP_OPTIONS } from './ui'
 
 export function ExercisesView() {
@@ -84,7 +84,7 @@ export function ExerciseForm({
   const [restSeconds, setRestSeconds] = useState<number | undefined>(exercise?.restSeconds)
   const [unit, setUnit] = useState<WeightUnit>(exercise ? unitFor(exercise) : 'kg')
   const [workingWeight, setWorkingWeight] = useState(
-    exercise?.workingWeight !== undefined ? fmt(toUnit(exercise.workingWeight, unit), lang) : '',
+    exercise?.workingWeight !== undefined ? fmt(shownKg(exercise.workingWeight, unit), lang) : '',
   )
   const [weightStep, setWeightStep] = useState<number | undefined>(exercise?.weightStep)
   const [weightStepLb, setWeightStepLb] = useState<number | undefined>(exercise?.weightStepLb)
@@ -94,27 +94,20 @@ export function ExerciseForm({
     { ...(exercise ?? { id: '', group, createdAt: 0 }), unit, weightStep: undefined, weightStepLb: undefined },
     settings.weightStep,
   )
-  const parseWeight = (text: string) => parseFloat(text.replace(',', '.'))
 
-  // Keep the typed working weight the same load when switching units.
-  const changeUnit = (next: WeightUnit) => {
-    const v = parseWeight(workingWeight)
-    if (Number.isFinite(v)) setWorkingWeight(fmt(toUnit(fromUnit(v, unit), next), lang))
-    setUnit(next)
-  }
 
   const canSave = !!name.trim() || !!exercise?.builtin
 
   const save = async () => {
     if (!canSave) return
-    const ww = parseWeight(workingWeight)
+    const ww = parseFloat(workingWeight.replace(',', '.'))
     const data = {
       name: name.trim() || undefined,
       group,
       notes: notes.trim() || undefined,
       photo,
       restSeconds,
-      workingWeight: Number.isFinite(ww) && ww >= 0 ? fromUnit(ww, unit) : undefined,
+      workingWeight: Number.isFinite(ww) && ww >= 0 ? (unit === 'lb' ? toPoundGrid(ww) : ww) : undefined,
       weightStep,
       weightStepLb,
       unit,
@@ -228,7 +221,7 @@ export function ExerciseForm({
               <span>{t('weightUnit')}</span>
               <div className="segmented">
                 {(['kg', 'lb'] as const).map((u) => (
-                  <button key={u} type="button" className={unit === u ? 'active' : ''} onClick={() => changeUnit(u)}>
+                  <button key={u} type="button" className={unit === u ? 'active' : ''} onClick={() => setUnit(u)}>
                     {u}
                   </button>
                 ))}
@@ -236,7 +229,7 @@ export function ExerciseForm({
               <small className="muted">{t('weightUnitHint')}</small>
             </div>
             <label>
-              {t(bodyweight ? 'addedWeight' : 'workingWeight')} ({unit})
+              {t(bodyweight ? 'addedWeight' : 'workingWeight')} (kg)
               <input
                 inputMode="decimal"
                 value={workingWeight}
@@ -337,7 +330,6 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
 
   if (!exercise || !sets) return null
 
-  const unit = unitFor(exercise)
   const best = sessions.reduce((m, s) => Math.max(m, s.e1rm), 0)
   const top = sessions.reduce((m, s) => Math.max(m, s.top), 0)
   const cardio = isCardio(exercise)
@@ -419,12 +411,12 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
         <>
           <div className="stats">
             <div>
-              <span className="stat-value">{fmt(Math.round(toUnit(best, unit) * 10) / 10, lang)}</span>
-              <span className="muted small">{t('est1rm')} ({unit})</span>
+              <span className="stat-value">{fmt(Math.round(best * 10) / 10, lang)}</span>
+              <span className="muted small">{t('est1rm')} (kg)</span>
             </div>
             <div>
-              <span className="stat-value">{fmt(toUnit(top, unit), lang)}</span>
-              <span className="muted small">{t('topWeight')} ({unit})</span>
+              <span className="stat-value">{fmt(Math.round(top * 10) / 10, lang)}</span>
+              <span className="muted small">{t('topWeight')} (kg)</span>
             </div>
             <div>
               <span className="stat-value">{sessions.length}</span>
@@ -439,7 +431,7 @@ export function ExerciseDetail({ id, onBack }: { id: string; onBack: () => void 
             ))}
           </div>
           <Chart
-            points={sessions.map((s) => ({ x: s.date, y: toUnit(s[metric], unit), label: shortDate(s.date) }))}
+            points={sessions.map((s) => ({ x: s.date, y: s[metric], label: shortDate(s.date) }))}
             format={(v) => fmt(Math.round(v), lang)}
           />
           {history}
