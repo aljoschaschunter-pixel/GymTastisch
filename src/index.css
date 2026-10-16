@@ -897,6 +897,8 @@ main.with-rest {
   overflow: hidden;
   z-index: 20;
   box-shadow: var(--shadow);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .rest-progress {
@@ -985,6 +987,12 @@ main.with-rest {
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 30;
+  /* Own compositing layer: iOS WebKit otherwise repaints a fixed, blurred bar late
+     during momentum scrolling on long pages, so it appears to scroll away and jump back. */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .tabbar button {
